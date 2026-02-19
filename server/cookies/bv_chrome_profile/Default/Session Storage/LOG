@@ -1,5 +1,8 @@
-2026/02/08-17:45:45.555 57c0 Reusing MANIFEST C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/MANIFEST-000001
-2026/02/08-17:45:45.556 57c0 Recovering log #3
-2026/02/08-17:45:45.558 57c0 Reusing old log C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/000003.log 
-2026/02/08-17:47:33.323 535c Level-0 table #5: started
-2026/02/08-17:47:33.330 535c Level-0 table #5: 29205 bytes OK
+2026/02/18-19:10:31.206 af4 Reusing MANIFEST C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/MANIFEST-000001
+2026/02/18-19:10:31.206 af4 Recovering log #3
+2026/02/18-19:10:31.207 af4 Level-0 table #3: started
+2026/02/18-19:10:31.210 af4 Level-0 table #3: 29205 bytes OK
+2026/02/18-19:10:31.210 af4 Recovering log #4
+2026/02/18-19:10:31.213 af4 Reusing old log C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/000004.log 
+2026/02/18-19:10:31.216 af4 Delete type=0 #3
+2026/02/18-19:10:31.216 af4 Delete type=2 #5

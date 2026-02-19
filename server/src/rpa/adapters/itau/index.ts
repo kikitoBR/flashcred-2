@@ -18,6 +18,41 @@ export class ItauAdapter implements BankAdapter {
             await frame.fill('#password', credentials.password || '');
             await frame.click('#kc-login');
             await page.waitForLoadState('networkidle');
+
+            // Handle "É hora de aproveitar!" popup - Aggressive JS approach
+            try {
+                console.log('[ItauAdapter] Checking for popup (Login phase) with JS...');
+                await page.waitForTimeout(2000); // Wait for animation
+
+                const closed = await page.evaluate(() => {
+                    const selectors = [
+                        '.dialog-header-close',
+                        '.dialog-header-btn',
+                        'button[aria-label="Fechar"]',
+                        'mat-dialog-container button',
+                        'publication-popup-dialog button'
+                    ];
+
+                    for (const s of selectors) {
+                        const el = document.querySelector(s) as HTMLElement;
+                        if (el) {
+                            el.click();
+                            return `Clicked ${s}`;
+                        }
+                    }
+                    return null;
+                });
+
+                if (closed) {
+                    console.log(`[ItauAdapter] Popup closed via JS: ${closed}`);
+                    await page.waitForTimeout(1000);
+                } else {
+                    console.log('[ItauAdapter] No popup found via JS selectors');
+                }
+            } catch (e) {
+                console.log('[ItauAdapter] Error handling popup:', e);
+            }
+
             return true;
         } catch (error) {
             return false;
@@ -29,6 +64,29 @@ export class ItauAdapter implements BankAdapter {
         const result: SimulationResult = { bankId: this.id, status: 'ERROR', offers: [] };
 
         try {
+            // Check for popup again before starting simulation flow
+            try {
+                console.log('[ItauAdapter] Checking for popup (Simulate phase)...');
+                const popupSelectors = [
+                    'button.dialog-header-close',
+                    'button.dialog-header-btn',
+                    'mat-dialog-container button',
+                    'publication-popup-dialog button'
+                ];
+
+                for (const selector of popupSelectors) {
+                    try {
+                        const closeBtn = page.locator(selector).first();
+                        if (await closeBtn.isVisible({ timeout: 2000 })) {
+                            console.log(`[ItauAdapter] Closing popup before simulation using selector: ${selector}`);
+                            await closeBtn.click();
+                            await page.waitForTimeout(1000);
+                            break;
+                        }
+                    } catch { /* optimize loop */ }
+                }
+            } catch (e) { /* ignore */ }
+
             // Step 1: Nav
             await page.locator('.sidenav').first().hover();
             await page.waitForTimeout(500);
