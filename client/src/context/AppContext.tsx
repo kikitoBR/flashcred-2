@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Client, Vehicle, BankCredential } from '../types';
-import { clientService, vehicleService } from '../services/api';
+import { clientService, vehicleService, credentialsService } from '../services/api';
 
 export interface AppContextType {
     clients: Client[];
@@ -23,12 +23,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const refreshData = async () => {
         try {
-            const [clientsData, vehiclesData] = await Promise.all([
+            const [clientsData, vehiclesData, credentialsData] = await Promise.all([
                 clientService.getAll(),
-                vehicleService.getAll()
+                vehicleService.getAll(),
+                credentialsService.getAll()
             ]);
             setClients(clientsData);
             setVehicles(vehiclesData);
+            setBankCredentials(credentialsData);
         } catch (error) {
             console.error('Error fetching initial data:', error);
         }

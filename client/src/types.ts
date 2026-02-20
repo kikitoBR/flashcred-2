@@ -67,3 +67,11 @@ export interface SimulationOffer {
     installments: { months: number; value: number; interestRate?: number; hasHighChance?: boolean; }[];
     reason?: string;
 }
+
+export interface BankCredential {
+    bankId: string;
+    login: string;
+    password?: string;
+    status?: 'ACTIVE' | 'INVALID' | 'EXPIRED';
+    lastUpdated: string;
+}

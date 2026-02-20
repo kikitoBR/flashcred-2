@@ -73,6 +73,15 @@ export const vehicleService = {
         });
         if (!response.ok) throw new Error('Failed to create vehicle');
         return response.json();
+    },
+    update: async (id: string, data: any) => {
+        const response = await fetch(`${API_URL}/vehicles/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) throw new Error('Failed to update vehicle');
+        return response.json();
     }
 };
 
@@ -105,6 +114,32 @@ export const interactionsService = {
             body: JSON.stringify(data)
         });
         if (!response.ok) throw new Error('Failed to log interaction');
+        return response.json();
+    }
+};
+
+export const credentialsService = {
+    getAll: async () => {
+        const response = await fetch(`${API_URL}/credentials`, { headers: getHeaders() });
+        if (!response.ok) throw new Error('Failed to fetch credentials');
+        return response.json();
+    },
+    save: async (bankId: string, login: string, password?: string) => {
+        const response = await fetch(`${API_URL}/credentials/${bankId}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ login, password })
+        });
+        if (!response.ok) throw new Error('Failed to save credentials');
+        return response.json();
+    },
+    updateStatus: async (bankId: string, status: 'ACTIVE' | 'INVALID' | 'EXPIRED') => {
+        const response = await fetch(`${API_URL}/credentials/${bankId}/status`, {
+            method: 'PATCH',
+            headers: getHeaders(),
+            body: JSON.stringify({ status })
+        });
+        if (!response.ok) throw new Error('Failed to update status');
         return response.json();
     }
 };

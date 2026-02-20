@@ -45,4 +45,31 @@ router.post('/', async (req, res: any) => {
     }
 });
 
+// PUT /api/vehicles/:id
+router.put('/:id', async (req, res: any) => {
+    try {
+        const tenantId = req.tenant.id;
+        const { id } = req.params;
+        const { brand, model, year, price, plate, mileage, images, status } = req.body;
+
+        const imagesJson = JSON.stringify(images || []);
+
+        const result: any = await query(
+            `UPDATE vehicles 
+             SET brand = ?, model = ?, year = ?, price = ?, plate = ?, mileage = ?, images_json = ?, status = ?
+             WHERE id = ? AND tenant_id = ?`,
+            [brand, model, year, price, plate, mileage, imagesJson, status || 'AVAILABLE', id, tenantId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Vehicle not found or unauthorized' });
+        }
+
+        res.json({ message: 'Vehicle updated successfully' });
+    } catch (error) {
+        console.error('Error updating vehicle:', error);
+        res.status(500).json({ error: 'Failed to update vehicle' });
+    }
+});
+
 export default router;

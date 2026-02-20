@@ -1,138 +1,138 @@
 import { chromium } from 'playwright';
 import { Client, Vehicle, SimulationResult } from '../types';
 import { ItauAdapter } from './adapters/itau';
-import { BvAdapter } from './adapters/bv';
-import { Credential, SimulationInput } from './types';
+import { OmniAdapter } from './adapters/omni';
+import { SafraAdapter } from './adapters/safra';
+import { Credential, SimulationInput, BankAdapter } from './types';
+import { credentialService } from './credential-service';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Cookie storage paths
 const COOKIES_DIR = path.join(__dirname, '../../cookies');
-const BV_COOKIES_FILE = path.join(COOKIES_DIR, 'bv_session.json');
-const ITAU_COOKIES_FILE = path.join(COOKIES_DIR, 'itau_session.json');
 
 // Ensure cookies directory exists
 if (!fs.existsSync(COOKIES_DIR)) {
     fs.mkdirSync(COOKIES_DIR, { recursive: true });
 }
 
+// Bank ID mapping (numeric IDs from frontend → internal adapter IDs)
+const BANK_ID_MAP: Record<string, string> = {
+    '1': 'itau',
+    '4': 'bv',
+    '6': 'c6',
+    '7': 'safra',
+    '9': 'omni',
+    'itau': 'itau',
+    'omni': 'omni',
+    'safra': 'safra',
+};
+
+// RPA-supported bank IDs
+const RPA_BANK_IDS = new Set(Object.keys(BANK_ID_MAP));
+
+// Adapter factory
+function createAdapter(bankId: string): BankAdapter | null {
+    switch (bankId) {
+        case 'itau': return new ItauAdapter();
+        case 'omni': return new OmniAdapter();
+        case 'safra': return new SafraAdapter();
+        default: return null;
+    }
+}
 
 export const runSimulations = async (client: any, vehicle: any, banks: string[]) => {
-    console.log(`[Orchestrator] Starting simulations for banks: ${banks.join(', ')}`);
+    console.log(`[Orchestrator] Starting PARALLEL simulations for banks: ${banks.join(', ')}`);
 
-    const results: any[] = [];
-    const browser = await chromium.launch({
-        headless: false,
-        channel: 'chrome', // Try using system Chrome
-        args: ['--start-maximized']
-    }); // Headless false for debugging initially
+    // Separate RPA banks from mock banks
+    const rpaBanks = banks.filter(b => RPA_BANK_IDS.has(b));
+    const mockBanks = banks.filter(b => !RPA_BANK_IDS.has(b));
 
-    try {
-        for (const bank of banks) {
-            if (bank === 'itau' || bank === 'c6' || bank === '3' || bank === '6' || bank === 'bv' || bank === '8') { // RPA Banks: Itau, C6, BV
-                console.log(`[Orchestrator] Running simulation for ${bank}...`);
+    // Mock results (instant)
+    const mockResults = mockBanks.map(bank => ({
+        bankId: bank,
+        status: 'ANALYSIS',
+        interestRate: 1.99,
+        installments: [{ months: 48, value: 1500 }]
+    }));
 
-                let context;
-                let page;
-                let usePersistentContext = false;
+    // Build shared simulation input
+    const input: SimulationInput = {
+        client: {
+            cpf: client.cpf,
+            name: client.name,
+            birthDate: client.birthDate || '01/01/1980',
+        },
+        vehicle: {
+            plate: vehicle.plate,
+            brand: vehicle.brand,
+            model: vehicle.model,
+            year: vehicle.year,
+            price: vehicle.price,
+            uf: 'SP'
+        },
+        downPayment: vehicle.downPayment || vehicle.entryValue || 0
+    };
 
-                // For BV, use persistent context to avoid bot detection
-                if (bank === 'bv' || bank === '8') {
-                    const BV_PROFILE_DIR = path.join(COOKIES_DIR, 'bv_chrome_profile');
+    // Launch ONE browser, then run all RPA banks in PARALLEL contexts
+    let browser;
+    let rpaResults: any[] = [];
 
-                    if (!fs.existsSync(BV_PROFILE_DIR)) {
-                        fs.mkdirSync(BV_PROFILE_DIR, { recursive: true });
+    if (rpaBanks.length > 0) {
+        browser = await chromium.launch({
+            headless: false,
+            channel: 'chrome',
+            args: ['--start-maximized']
+        });
+
+        try {
+            // Create parallel promises for each RPA bank
+            const rpaPromises = rpaBanks.map(async (bank) => {
+                const internalBankId = BANK_ID_MAP[bank];
+                console.log(`[Orchestrator] 🚀 Launching parallel simulation for ${internalBankId} (${bank})`);
+
+                // Create adapter
+                const adapter = createAdapter(internalBankId);
+                if (!adapter) {
+                    console.warn(`[Orchestrator] No adapter for ${internalBankId}`);
+                    return { bankId: bank, status: 'ERROR', reason: `No adapter for ${internalBankId}` };
+                }
+
+                // Fetch credentials using original frontend ID to match DB
+                const tenantId = 'tenant-123';
+                const credentials = await credentialService.getCredentials(bank, tenantId);
+                if (!credentials) {
+                    console.error(`[Orchestrator] No credentials for ${bank}`);
+                    return { bankId: bank, status: 'ERROR', reason: `No credentials for ${internalBankId}` };
+                }
+
+                // Each bank gets its own browser context (isolated session)
+                const context = await browser!.newContext({
+                    viewport: null,
+                    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    locale: 'pt-BR',
+                    timezoneId: 'America/Sao_Paulo',
+                });
+                const page = await context.newPage();
+
+                try {
+                    // Login
+                    const loggedIn = await adapter.login(page, credentials);
+                    if (!loggedIn) {
+                        console.error(`[Orchestrator] Login failed for ${internalBankId}`);
+                        return { bankId: bank, status: 'ERROR', reason: 'Login failed' };
                     }
 
-                    console.log('[Orchestrator] Using persistent Chrome profile for BV...');
+                    console.log(`[Orchestrator] ✅ Login OK for ${internalBankId}`);
 
-                    // Close existing browser if any (we'll use persistent context instead)
-                    await browser.close();
-
-                    context = await chromium.launchPersistentContext(BV_PROFILE_DIR, {
-                        headless: false,
-                        channel: 'chrome',
-                        args: [
-                            '--start-maximized',
-                            '--disable-blink-features=AutomationControlled',
-                            '--disable-infobars',
-                        ],
-                        viewport: null,
-                        locale: 'pt-BR',
-                        timezoneId: 'America/Sao_Paulo',
-                    });
-
-                    page = context.pages()[0] || await context.newPage();
-                    usePersistentContext = true;
-                } else {
-                    // For other banks, use normal context
-                    const contextOptions: any = {
-                        viewport: null,
-                        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        locale: 'pt-BR',
-                        timezoneId: 'America/Sao_Paulo',
-                    };
-
-                    context = await browser.newContext(contextOptions);
-                    page = await context.newPage();
-                }
-
-                // TODO: Retrieve credentials from a secure storage based on tenant
-                const credentials: Credential = {
-                    login: process.env.ITAU_LOGIN || 'mock_user',
-                    password: process.env.ITAU_PASSWORD || 'mock_pass',
-                    codAgente: process.env.ITAU_AGENTE || '0000',
-                    codOperador: process.env.ITAU_OPERADOR || '0000'
-                };
-
-                let adapter;
-                let bankCredentials: Credential = credentials;
-
-                if (bank === 'itau' || bank === '3') {
-                    adapter = new ItauAdapter();
-                } else if (bank === 'bv' || bank === '8') {
-                    adapter = new BvAdapter();
-                    bankCredentials = {
-                        login: process.env.BV_LOGIN || '',
-                        password: process.env.BV_PASSWORD || ''
-                    };
-                } else {
-                    console.warn(`[Orchestrator] No adapter found for ${bank}, skipping RPA for this bank.`);
-                    continue;
-                }
-
-                const loggedIn = await adapter.login(page, bankCredentials);
-
-                // Log success
-                if (loggedIn) {
-                    console.log(`[Orchestrator] Login successful for ${bank}`);
-                }
-
-                if (loggedIn) {
-                    const input: SimulationInput = {
-                        client: {
-                            cpf: client.cpf,
-                            name: client.name,
-                            birthDate: client.birthDate || '01/01/1980', // Default if missing
-                        },
-                        vehicle: {
-                            plate: vehicle.plate,
-                            brand: vehicle.brand,
-                            model: vehicle.model,
-                            year: vehicle.year,
-                            price: vehicle.price,
-                            uf: 'SP' // Default UF
-                        },
-                        downPayment: vehicle.downPayment || vehicle.entryValue || 0
-                    };
-
+                    // Simulate
                     const simulationResult = await adapter.simulate(page, input);
 
-                    // Map RPA result to App format if successful
+                    // Map result
                     if (simulationResult.status === 'SUCCESS') {
-                        results.push({
+                        return {
                             bankId: bank,
-                            status: 'APPROVED', // Assuming success means approved for now
+                            status: 'APPROVED',
                             interestRate: simulationResult.offers.find(o => o.interestRate > 0)?.interestRate || 0,
                             maxInstallments: 60,
                             downPayment: input.downPayment,
@@ -143,40 +143,32 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[])
                                 hasHighChance: o.hasHighChance
                             })),
                             reason: simulationResult.message
-                        });
+                        };
                     } else {
-                        results.push({
+                        return {
                             bankId: bank,
                             status: 'REJECTED',
                             reason: simulationResult.message || 'Simulation failed'
-                        });
+                        };
                     }
-                } else {
-                    console.error(`[Orchestrator] Failed to login to ${bank}`);
-                    results.push({
-                        bankId: bank,
-                        status: 'ERROR',
-                        reason: 'Login failed'
-                    });
+                } catch (error: any) {
+                    console.error(`[Orchestrator] Error for ${internalBankId}:`, error.message);
+                    return { bankId: bank, status: 'ERROR', reason: error.message };
+                } finally {
+                    await context.close();
                 }
+            });
 
-                await context.close();
-            } else {
-                // Mock result for other banks
-                results.push({
-                    bankId: bank,
-                    status: 'ANALYSIS',
-                    interestRate: 1.99,
-                    installments: [
-                        { months: 48, value: 1500 }
-                    ]
-                });
-            }
+            // Run ALL RPA simulations in parallel!
+            console.log(`[Orchestrator] ⚡ Running ${rpaBanks.length} RPA simulations in parallel...`);
+            rpaResults = await Promise.all(rpaPromises);
+            console.log(`[Orchestrator] ✅ All ${rpaBanks.length} parallel simulations completed!`);
+
+        } catch (error) {
+            console.error('[Orchestrator] Global error:', error);
+        } finally {
+            await browser.close();
         }
-    } catch (error) {
-        console.error('[Orchestrator] Global error:', error);
-    } finally {
-        await browser.close();
     }
 
     return {
@@ -184,6 +176,6 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[])
         date: new Date().toISOString(),
         client,
         vehicle,
-        offers: results
+        offers: [...mockResults, ...rpaResults]
     };
 };

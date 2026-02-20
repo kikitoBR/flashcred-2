@@ -1,8 +1,13 @@
-2026/02/18-19:10:31.206 af4 Reusing MANIFEST C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/MANIFEST-000001
-2026/02/18-19:10:31.206 af4 Recovering log #3
-2026/02/18-19:10:31.207 af4 Level-0 table #3: started
-2026/02/18-19:10:31.210 af4 Level-0 table #3: 29205 bytes OK
-2026/02/18-19:10:31.210 af4 Recovering log #4
-2026/02/18-19:10:31.213 af4 Reusing old log C:\Users\kikiTo\Downloads\flashcred\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/000004.log 
-2026/02/18-19:10:31.216 af4 Delete type=0 #3
-2026/02/18-19:10:31.216 af4 Delete type=2 #5
+2026/02/19-10:04:02.512 2e80 Reusing MANIFEST C:\Users\marcos.alexandre\Downloads\flashcred\server\cookies\bv_chrome_profile\Default\Session Storage/MANIFEST-000001
+2026/02/19-10:04:02.513 2e80 Recovering log #7
+2026/02/19-10:04:02.514 2e80 Level-0 table #10: started
+2026/02/19-10:04:02.522 2e80 Level-0 table #10: 26241 bytes OK
+2026/02/19-10:04:02.534 2e80 Delete type=0 #7
+2026/02/19-10:04:02.538 3c40 Compacting 4@0 + 0@1 files
+2026/02/19-10:04:02.558 3c40 Generated table #12@0: 2 keys, 144 bytes
+2026/02/19-10:04:02.558 3c40 Compacted 4@0 + 0@1 files => 144 bytes
+2026/02/19-10:04:02.563 3c40 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/02/19-10:04:02.565 3c40 Delete type=2 #3
+2026/02/19-10:04:02.566 3c40 Delete type=2 #6
+2026/02/19-10:04:02.566 3c40 Delete type=2 #8
+2026/02/19-10:04:02.567 3c40 Delete type=2 #10

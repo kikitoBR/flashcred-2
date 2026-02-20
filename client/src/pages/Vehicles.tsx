@@ -111,14 +111,18 @@ export const Vehicles = () => {
             price: Number(formData.price),
             plate: formData.plate,
             mileage: Number(formData.mileage),
-            images: formData.images.length > 0 ? formData.images : [`https://picsum.photos/400/250?random=${Math.floor(Math.random() * 1000)}`],
+            images: formData.images,
             status: formData.status
         };
 
         try {
             if (editingVehicle) {
-                // TODO: Implement update API
-                setVehicles(prev => prev.map(v => v.id === editingVehicle.id ? { ...v, ...vehicleData } as Vehicle : v));
+                const result = await vehicleService.update(editingVehicle.id, vehicleData);
+                console.log('Vehicle updated:', result);
+
+                // Refresh vehicles list from database
+                const updatedVehicles = await vehicleService.getAll();
+                setVehicles(updatedVehicles);
             } else {
                 // Create new vehicle via API
                 const result = await vehicleService.create(vehicleData);
@@ -219,24 +223,29 @@ export const Vehicles = () => {
                             className="overflow-hidden group hover:shadow-lg transition-all cursor-pointer"
                             onClick={() => setViewingVehicle(vehicle)}
                         >
-                            <div className="relative h-48 bg-slate-200 overflow-hidden">
-                                <img src={displayImage} alt={`${vehicle.brand} ${vehicle.model}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <div className="relative h-48 bg-slate-200 overflow-hidden flex items-center justify-center">
+                                {vehicle.images && vehicle.images.length > 0 ? (
+                                    <>
+                                        <img src={displayImage} alt={`${vehicle.brand} ${vehicle.model}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        {/* Image Navigation Overlay */}
+                                        {vehicle.images.length > 1 && (
+                                            <>
+                                                <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleImage(vehicle.id, 'prev', vehicle.images.length) }} className="p-1 bg-black/50 text-white rounded-full hover:bg-black/70 pointer-events-auto"><ChevronLeft size={16} /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); toggleImage(vehicle.id, 'next', vehicle.images.length) }} className="p-1 bg-black/50 text-white rounded-full hover:bg-black/70 pointer-events-auto"><ChevronRight size={16} /></button>
+                                                </div>
+                                                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full z-10">
+                                                    {currentImgIndex + 1}/{vehicle.images.length}
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                ) : (
+                                    <Car className="w-20 h-20 text-slate-300" strokeWidth={1.5} />
+                                )}
                                 <div className="absolute top-2 right-2 z-10">
                                     {getStatusBadge(vehicle.status)}
                                 </div>
-
-                                {/* Image Navigation Overlay */}
-                                {vehicle.images.length > 1 && (
-                                    <>
-                                        <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                            <button onClick={(e) => { e.stopPropagation(); toggleImage(vehicle.id, 'prev', vehicle.images.length) }} className="p-1 bg-black/50 text-white rounded-full hover:bg-black/70 pointer-events-auto"><ChevronLeft size={16} /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); toggleImage(vehicle.id, 'next', vehicle.images.length) }} className="p-1 bg-black/50 text-white rounded-full hover:bg-black/70 pointer-events-auto"><ChevronRight size={16} /></button>
-                                        </div>
-                                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full z-10">
-                                            {currentImgIndex + 1}/{vehicle.images.length}
-                                        </div>
-                                    </>
-                                )}
                             </div>
                             <div className="p-4">
                                 <h3 className="font-bold text-slate-900 text-lg truncate">{vehicle.brand} {vehicle.model}</h3>

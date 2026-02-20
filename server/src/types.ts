@@ -52,6 +52,7 @@ export interface BankCredential {
   bankId: string;
   login: string;
   password?: string; // Optional because we might not simulate returning the actual password in a real app
+  status?: 'ACTIVE' | 'INVALID' | 'EXPIRED';
   lastUpdated: string;
 }
 

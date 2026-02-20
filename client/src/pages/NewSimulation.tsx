@@ -7,11 +7,11 @@ import {
 import { useAppContext } from '../context/AppContext';
 import { Client, SimulationOffer, Vehicle } from '../types';
 import { rpaService } from '../services/api';
-import { BANKS } from '../constants';
+import { BANKS } from '../../constants';
 import { Badge, Button, Card, Input, Modal } from '../components/ui';
 
 export const NewSimulation = () => {
-    const { clients, vehicles, updateClientScore, setVehicles } = useAppContext();
+    const { clients, vehicles, updateClientScore, setVehicles, bankCredentials } = useAppContext();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -43,7 +43,20 @@ export const NewSimulation = () => {
     // Financials
     const [downPayment, setDownPayment] = useState<number>(0);
 
-    const [selectedBanks, setSelectedBanks] = useState<string[]>(BANKS.map(b => b.id));
+    const activeBanks = React.useMemo(() => BANKS.filter(bank => {
+        const cred = bankCredentials.find(c => c.bankId === bank.id);
+        return cred?.status === 'ACTIVE' || !cred?.status;
+    }), [bankCredentials]);
+
+    const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+
+    useEffect(() => {
+        // Initialize or update selected banks to only include active ones
+        setSelectedBanks(prev => {
+            if (prev.length === 0) return activeBanks.map(b => b.id);
+            return prev.filter(id => activeBanks.some(b => b.id === id));
+        });
+    }, [activeBanks]);
     const [simulationResults, setSimulationResults] = useState<SimulationOffer[]>([]);
 
     // Sale Success State
@@ -173,7 +186,7 @@ export const NewSimulation = () => {
         setStep(3); // Loading state
 
         // Split banks
-        const rpaBankIds = ['6', '3', '8']; // IDs from constants.ts for C6 Bank, Itau, and BV
+        const rpaBankIds = ['6', '1', '4', '7', '9']; // C6 Bank(6), Itau(1), BV(4), Safra(7), Omni(9)
         const selectedRpaBanks = selectedBanks.filter(id => rpaBankIds.includes(id));
         const selectedMockBanks = selectedBanks.filter(id => !rpaBankIds.includes(id));
 
@@ -586,7 +599,7 @@ export const NewSimulation = () => {
                 <Card className="p-4 md:p-8 max-w-4xl mx-auto">
                     <h2 className="text-lg font-bold text-slate-900 mb-6">Selecione os Bancos</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {BANKS.map(bank => (
+                        {activeBanks.map(bank => (
                             <div
                                 key={bank.id}
                                 onClick={() => toggleBank(bank.id)}

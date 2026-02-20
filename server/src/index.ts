@@ -12,12 +12,14 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 import clientRoutes from './routes/clients';
 import vehicleRoutes from './routes/vehicles';
 import salesRoutes from './routes/sales';
 import interactionRoutes from './routes/interactions';
+import credentialsRoutes from './routes/credentials';
 
 // Apply tenant middleware to API routes
 app.use('/api', tenantMiddleware);
@@ -27,6 +29,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/interactions', interactionRoutes);
+app.use('/api/credentials', credentialsRoutes);
 
 app.get('/', (req, res) => {
     res.send('FlashCred Server Running (Multi-Tenant)');
