@@ -1,6 +1,5 @@
 import { Page } from 'playwright';
 import { BankAdapter, Credential, SimulationInput, SimulationResult, SimulationOffer } from '../../types';
-import { StringUtils } from '../../utils/stringUtils';
 
 export class SafraAdapter implements BankAdapter {
     id = 'safra';
@@ -243,25 +242,9 @@ export class SafraAdapter implements BankAdapter {
                 const optionsCount = await optionsElements.count();
 
                 if (optionsCount > 0) {
-                    const optionTexts: string[] = [];
-                    for (let i = 0; i < optionsCount; i++) {
-                        const text = await optionsElements.nth(i).textContent();
-                        if (text) optionTexts.push(text.trim());
-                    }
-
-                    const targetText = input.vehicle.model;
-                    const bestMatch = StringUtils.findBestMatch(targetText, optionTexts);
-
-                    if (bestMatch) {
-                        console.log(`[SafraAdapter] → Target: "${targetText}" | Best Match: "${bestMatch}"`);
-                        const optionToClick = page.locator(`ng-select#versao .ng-option:has-text("${bestMatch}")`).first();
-                        await optionToClick.waitFor({ state: 'visible', timeout: 10000 });
-                        await optionToClick.click();
-                    } else {
-                        // Fallback
-                        console.log('[SafraAdapter] → No good match found, falling back to first option');
-                        await optionsElements.first().click();
-                    }
+                    // Clica diretamente na primeira opção
+                    console.log('[SafraAdapter] → Selecting the first available version option');
+                    await optionsElements.first().click();
                 } else {
                     console.warn('[SafraAdapter] ⚠️ No version options loaded in dropdown');
                 }

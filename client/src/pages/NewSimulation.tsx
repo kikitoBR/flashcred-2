@@ -295,7 +295,9 @@ export const NewSimulation = () => {
                 clientName: client.name,
                 clientCpf: client.cpf,
                 vehicleId: vehicle.id,
-                vehicleDescription: `${vehicle.brand} ${vehicle.model} ${vehicle.version || ''}`.trim(),
+                vehicleDescription: `${vehicle.brand} ${vehicle.model} - ${vehicle.plate}`.trim(),
+                bankId: 'MULTIBANK',
+                bankName: 'Múltiplos Bancos',
                 status: results.some(r => r.status === 'APPROVED') ? 'APPROVED' : 'REJECTED',
                 resultData: { offers: results }
             });
@@ -737,7 +739,7 @@ export const NewSimulation = () => {
                                         <span className="font-medium text-slate-900 text-sm">{vehicle?.brand} {vehicle?.model}</span>
                                     </div>
                                 </div>
-                                <Button variant="outline" className="w-full mt-6" onClick={() => setStep(1)}>Nova Simulação</Button>
+                                <Button variant="outline" className="w-full mt-6" onClick={() => setSimulationState(null)}>Nova Simulação</Button>
                             </Card>
                         </div>
 

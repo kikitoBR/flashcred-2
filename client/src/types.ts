@@ -42,7 +42,7 @@ export interface Vehicle {
     images: string[];
     status?: string;
     uf?: string;
-    condition?: 'NOVO' | 'SEMINOVO' | 'USADO';
+    condition?: 'NOVO' | 'SEMINOVO';
 }
 
 export interface Bank {

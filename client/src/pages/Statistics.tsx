@@ -390,18 +390,22 @@ export const Statistics = () => {
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">{item.bank}</td>
                                             <td className="px-6 py-4">
-                                                <Button variant="ghost" className="h-8 w-8 p-0 border border-slate-200" onClick={() => {
-                                                    setSelectedSimulation(item);
-                                                    setIsSimModalOpen(true);
-                                                }}>
-                                                    <Eye className="w-4 h-4 text-slate-500" />
-                                                </Button>
+                                                <button
+                                                    title="Ver Detalhes"
+                                                    onClick={() => {
+                                                        setSelectedSimulation(item);
+                                                        setIsSimModalOpen(true);
+                                                    }}
+                                                    className="p-2 flex items-center justify-center bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-all duration-200 border border-emerald-500 shadow-sm"
+                                                >
+                                                    <Search className="w-4 h-4 stroke-[2.5]" />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
                                     {filteredHistory.length === 0 && !loading && (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                                                 Nenhuma simulação encontrada com os filtros atuais.
                                             </td>
                                         </tr>

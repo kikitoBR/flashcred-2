@@ -100,16 +100,66 @@ router.get('/stats', async (req, res: any) => {
             [tenantId]
         );
 
-        // Bank Performance
-        const bankData = await query(
-            `SELECT bank_name as name, 
-                    SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as aprovados,
-                    SUM(CASE WHEN status = 'REJECTED' OR status = 'Reprovado' THEN 1 ELSE 0 END) as reprovados
-             FROM simulations 
-             WHERE tenant_id = ? 
-             GROUP BY bank_name`,
+        // Bank Performance via JSON Parsing of result_data
+        const simulationsRaw = await query(
+            `SELECT bank_name, status, result_data FROM simulations WHERE tenant_id = ?`,
             [tenantId]
-        );
+        ) as any[];
+
+        const bankStatsMap: Record<string, { aprovados: number, reprovados: number }> = {};
+
+        // Helper map to match bank IDs to names
+        const bankNameMap: Record<string, string> = {
+            '1': 'Banco Itaú',
+            '2': 'Bradesco Financiamentos',
+            '3': 'Santander',
+            '4': 'BV Financeira',
+            '5': 'Banco Pan',
+            '6': 'C6 Bank',
+            '7': 'Banco Safra',
+            '8': 'Daycoval',
+            '9': 'Omni Financeira'
+        };
+
+        simulationsRaw.forEach(sim => {
+            if (sim.bank_name === 'Múltiplos Bancos' || sim.bank_name === 'MULTIBANK') {
+                try {
+                    const resultData = typeof sim.result_data === 'string' ? JSON.parse(sim.result_data) : sim.result_data;
+                    if (resultData && resultData.offers && Array.isArray(resultData.offers)) {
+                        resultData.offers.forEach((offer: any) => {
+                            if (!offer.bankId) return;
+                            const bName = bankNameMap[offer.bankId] || `Banco ${offer.bankId}`;
+                            if (!bankStatsMap[bName]) {
+                                bankStatsMap[bName] = { aprovados: 0, reprovados: 0 };
+                            }
+                            if (offer.status === 'APPROVED') {
+                                bankStatsMap[bName].aprovados++;
+                            } else {
+                                bankStatsMap[bName].reprovados++;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error parsing resultData for bank stats:', e);
+                }
+            } else {
+                // Ensure older pre-MULTIBANK records are also counted
+                if (!bankStatsMap[sim.bank_name]) {
+                    bankStatsMap[sim.bank_name] = { aprovados: 0, reprovados: 0 };
+                }
+                if (sim.status === 'APPROVED') {
+                    bankStatsMap[sim.bank_name].aprovados++;
+                } else if (sim.status === 'REJECTED' || sim.status === 'Reprovado') {
+                    bankStatsMap[sim.bank_name].reprovados++;
+                }
+            }
+        });
+
+        const bankData = Object.entries(bankStatsMap).map(([name, stats]) => ({
+            name,
+            aprovados: stats.aprovados,
+            reprovados: stats.reprovados
+        }));
 
         res.json({
             todaySimulations: todaySims?.count || 0,
@@ -167,8 +217,19 @@ router.post('/simulation', async (req, res: any) => {
             `INSERT INTO simulations (id, tenant_id, client_id, client_name, client_cpf, vehicle_id, vehicle_description, 
              bank_id, bank_name, status, result_data)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, tenantId, clientId, clientName, clientCpf, vehicleId, vehicleDescription,
-                bankId, bankName, status || 'PENDING', JSON.stringify(resultData || {})]
+            [
+                id,
+                tenantId,
+                clientId || null,
+                clientName || 'Cliente',
+                clientCpf || null,
+                vehicleId || null,
+                vehicleDescription || null,
+                bankId || 'MULTIBANK',
+                bankName || 'Múltiplos Bancos',
+                status || 'PENDING',
+                JSON.stringify(resultData || {})
+            ]
         );
 
         res.status(201).json({ id, message: 'Simulation logged successfully' });

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Car, Plus, Upload, X, ChevronLeft, ChevronRight, Edit2, Trash2, Search, RefreshCw
+    Car, Plus, Upload, X, ChevronLeft, ChevronRight, Edit2, Trash2, Search
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { Vehicle } from '../types';
@@ -23,22 +23,13 @@ export const Vehicles = () => {
     const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null);
     const [sellingVehicle, setSellingVehicle] = useState<Vehicle | null>(null);
 
-    // FIPE Cascading State
-    const [fipeBrands, setFipeBrands] = useState<any[]>([]);
-    const [fipeModels, setFipeModels] = useState<any[]>([]);
-    const [fipeYears, setFipeYears] = useState<any[]>([]);
 
-    // Selected IDs for fetching
-    const [selBrandId, setSelBrandId] = useState('');
-    const [selModelId, setSelModelId] = useState('');
-    const [selYearId, setSelYearId] = useState('');
-    const [isFipeLoading, setIsFipeLoading] = useState(false);
 
     // Form Initial State
     const initialFormState = {
         brand: '', model: '', version: '', year: '', price: '' as string | number, plate: '', mileage: '',
         images: [] as string[], status: 'AVAILABLE' as 'AVAILABLE' | 'SOLD' | 'RESERVED',
-        uf: '', condition: 'SEMINOVO' as 'NOVO' | 'SEMINOVO' | 'USADO'
+        uf: '', condition: 'SEMINOVO' as 'NOVO' | 'SEMINOVO'
     };
     const [formData, setFormData] = useState(initialFormState);
 
@@ -81,95 +72,16 @@ export const Vehicles = () => {
         });
 
         // Reset cascading IDs on edit to avoid mismatches
-        setSelBrandId('');
-        setSelModelId('');
-        setSelYearId('');
         setIsModalOpen(true);
     };
 
     const handleNew = () => {
         setEditingVehicle(null);
         setFormData(initialFormState);
-        setSelBrandId('');
-        setSelModelId('');
-        setSelYearId('');
         setIsModalOpen(true);
     };
 
-    // --- FIPE Cascading Fetch Effects ---
-    React.useEffect(() => {
-        if (!isModalOpen) return;
-        const fetchBrands = async () => {
-            try {
-                const res = await fetch(`http://localhost:3001/api/fipe/brands`, { headers: { 'x-tenant-id': 'tenant-123' } });
-                const data = await res.json();
-                if (Array.isArray(data)) setFipeBrands(data);
-            } catch (e) { console.error(e); }
-        };
-        fetchBrands();
-    }, [isModalOpen]);
 
-    React.useEffect(() => {
-        if (!selBrandId) { setFipeModels([]); return; }
-        const fetchModels = async () => {
-            try {
-                const res = await fetch(`http://localhost:3001/api/fipe/models/${selBrandId}`, { headers: { 'x-tenant-id': 'tenant-123' } });
-                const data = await res.json();
-                if (data.modelos) setFipeModels(data.modelos);
-            } catch (e) { console.error(e); }
-        };
-        fetchModels();
-    }, [selBrandId]);
-
-    React.useEffect(() => {
-        if (!selModelId || !selBrandId) { setFipeYears([]); return; }
-        const fetchYears = async () => {
-            try {
-                const res = await fetch(`http://localhost:3001/api/fipe/years/${selBrandId}/${selModelId}`, { headers: { 'x-tenant-id': 'tenant-123' } });
-                const data = await res.json();
-                if (Array.isArray(data)) setFipeYears(data);
-            } catch (e) { console.error(e); }
-        };
-        fetchYears();
-    }, [selModelId]);
-
-    const handleYearSelection = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const yearId = e.target.value;
-        setSelYearId(yearId);
-        if (!yearId || !selModelId || !selBrandId) return;
-
-        // Auto-fill form data based on current selections
-        const brandName = fipeBrands.find(b => b.codigo == selBrandId)?.nome || '';
-        const modelName = fipeModels.find(m => m.codigo == selModelId)?.nome || '';
-
-        setFormData(prev => ({ ...prev, brand: brandName, model: modelName }));
-
-        setIsFipeLoading(true);
-        try {
-            const res = await fetch(`http://localhost:3001/api/fipe/versions/${selBrandId}/${selModelId}/${yearId}`, { headers: { 'x-tenant-id': 'tenant-123' } });
-            const data = await res.json();
-
-            if (data.Modelo) {
-                const yearNum = parseInt(data.AnoModelo) || parseInt(yearId.split('-')[0]);
-                let finalPrice = data.Valor || '';
-                if (finalPrice.includes('R$')) {
-                    // Convert "R$ 68.000,00" to Float
-                    const numericPrice = parseFloat(finalPrice.replace('R$', '').replace(/\./g, '').replace(',', '.').trim());
-                    finalPrice = numericPrice as any;
-                }
-                setFormData(prev => ({
-                    ...prev,
-                    brand: brandName || data.Marca,
-                    model: modelName, // Saving FIPE base model name without year included
-                    version: data.Modelo, // Exact string for RPA matcher
-                    year: yearNum ? yearNum.toString() : prev.year,
-                    price: finalPrice || prev.price
-                }));
-            }
-        } catch (e) { console.error(e); } finally {
-            setIsFipeLoading(false);
-        }
-    };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
@@ -358,7 +270,7 @@ export const Vehicles = () => {
                                     <span>•</span>
                                     <span>{vehicle.mileage?.toLocaleString() || 0} km</span>
                                     <span>•</span>
-                                    <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-medium">{vehicle.condition === 'NOVO' ? '0km' : vehicle.condition === 'USADO' ? 'Usado' : 'Seminovo'}</span>
+                                    <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-medium">{vehicle.condition === 'NOVO' ? '0km' : 'Seminovo'}</span>
                                 </div>
 
                                 <div className="flex items-end justify-between mb-4">
@@ -402,59 +314,8 @@ export const Vehicles = () => {
                             <Input label="Placa" value={formData.plate} onChange={(e: any) => setFormData({ ...formData, plate: e.target.value })} required className="uppercase" placeholder="AAA1A11" />
                         </div>
 
-                        {/* FIPE Cascading Section */}
-                        <div className="md:col-span-2 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 space-y-4">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Car className="w-4 h-4 text-emerald-600" />
-                                <h3 className="text-sm font-bold text-emerald-800">Carga Tabela FIPE (Preenchimento Automático)</h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">1. Marca</label>
-                                    <select
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                                        value={selBrandId}
-                                        onChange={(e) => { setSelBrandId(e.target.value); setSelModelId(''); setSelYearId(''); }}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {fipeBrands.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">2. Modelo</label>
-                                    <select
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                                        value={selModelId}
-                                        onChange={(e) => { setSelModelId(e.target.value); setSelYearId(''); }}
-                                        disabled={!selBrandId}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {fipeModels.map(m => <option key={m.codigo} value={m.codigo}>{m.nome}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">3. Ano FIPE</label>
-                                        {isFipeLoading && <RefreshCw className="w-3 h-3 text-emerald-600 animate-spin mb-1.5" />}
-                                    </div>
-                                    <select
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                                        value={selYearId}
-                                        onChange={handleYearSelection}
-                                        disabled={!selModelId}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {fipeYears.map(y => <option key={y.codigo} value={y.codigo}>{y.nome}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <p className="text-xs text-slate-500">
-                                Dica: Ao selecionar o Ano, o sistema preencherá automaticamente os campos abaixo com a nomenclatura oficial para o Robô dos Bancos.
-                            </p>
-                        </div>
-
-                        <Input label="Marca Final" value={formData.brand} onChange={(e: any) => setFormData({ ...formData, brand: e.target.value })} required placeholder="Ex: Honda" />
-                        <Input label="Modelo Final" value={formData.model} onChange={(e: any) => setFormData({ ...formData, model: e.target.value })} required placeholder="Ex: Civic" />
+                        <Input label="Marca" value={formData.brand} onChange={(e: any) => setFormData({ ...formData, brand: e.target.value })} required placeholder="Ex: Honda" />
+                        <Input label="Modelo" value={formData.model} onChange={(e: any) => setFormData({ ...formData, model: e.target.value })} required placeholder="Ex: Civic" />
 
 
                         <Input label="Ano (Fabricação)" type="number" value={formData.year} onChange={(e: any) => setFormData({ ...formData, year: e.target.value })} required />
@@ -524,7 +385,6 @@ export const Vehicles = () => {
                             >
                                 <option value="NOVO">Novo (0km)</option>
                                 <option value="SEMINOVO">Seminovo</option>
-                                <option value="USADO">Usado</option>
                             </select>
                         </div>
                     </div>
