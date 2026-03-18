@@ -322,6 +322,28 @@ export class SafraAdapter implements BankAdapter {
             }
             await page.waitForTimeout(1000);
 
+            // ── Step 12b: Select Return (R) ──
+            const safraReturn = (input as any).options?.safraReturn || 'R0'; // Define um valor padrão se não vier
+            console.log(`[SafraAdapter] Step 12b: Selecting Return (R): ${safraReturn}...`);
+            try {
+                // Acha o form-group ou div container que possui o texto "Retorno (R)" e foca o ng-select lá dentro
+                const returnSelectLocator = page.locator('div, fieldset, .form-group').filter({ hasText: 'Retorno (R)' }).locator('ng-select').first();
+                if (await returnSelectLocator.isVisible().catch(() => false) || await returnSelectLocator.count() > 0) {
+                    await this.selectNgOption(page, returnSelectLocator, safraReturn);
+                } else {
+                    // Fallback para procurar ng-select global que tenha no placeholder ou algo associado a retorno
+                    const returnSelectFallback = page.locator('ng-select').filter({ hasText: /Retorno/i }).first();
+                    if (await returnSelectFallback.count() > 0) {
+                        await this.selectNgOption(page, returnSelectFallback, safraReturn);
+                    } else {
+                        console.log('[SafraAdapter] ⚠️ "Retorno (R)" field not found on screen.');
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[SafraAdapter] ⚠️ Error selecting Return (R):', e.message);
+            }
+            await page.waitForTimeout(1000);
+
             // ── Step 13: Click Recalcular ──
             console.log('[SafraAdapter] Step 13: Clicking Recalcular...');
             await this.clickRecalcular(page);
@@ -338,10 +360,18 @@ export class SafraAdapter implements BankAdapter {
                 try {
                     // Clica via JS direto na DOM na pílula do mês específico (e.g. "60x")
                     const clickedMonth = await page.evaluate((m) => {
+                        // 1) Novo layout: procura pela label ou input correspondente ao mês
+                        const labelItem = document.querySelector(`label[for="${m}"]`) as HTMLElement;
+                        if (labelItem) {
+                            labelItem.click();
+                            return true;
+                        }
+
+                        // 2) Fallback para layout antigo
                         const allElements = Array.from(document.querySelectorAll('div, span, button'));
                         // Achando a label que tem exatamente "60x", "48x", etc e pareça um boão clicável
                         const btn = allElements.find(el => {
-                            const t = el.textContent?.trim();
+                            const t = el.textContent?.replace(/\s+/g, ' ').trim();
                             // Verifica texto exato e se elemento parece ser parte de um toggle group (classes comuns)
                             return t === `${m}x` && (el.className.includes('btn') || el.className.includes('p-button') || el.closest('.installment-selector, .prazo-container, .btn-group') != null);
                         }) as HTMLElement;
@@ -363,7 +393,13 @@ export class SafraAdapter implements BankAdapter {
 
                     if (!clickedMonth) {
                         // Se não clicou pela DOM, tenta via Força Bruta do Playwright
-                        await page.locator(`text="${months}x"`).first().click({ force: true, timeout: 2000 }).catch(() => { });
+                        try {
+                            // Tenta o novo layout primário
+                            await page.locator(`label[for="${months}"]`).click({ force: true, timeout: 2000 });
+                        } catch {
+                            // Fallback
+                            await page.locator(`text="${months}x"`).first().click({ force: true, timeout: 2000 }).catch(() => { });
+                        }
                     }
 
                     await page.waitForTimeout(1500); // Aguarda a troca de aba renderizar o valor
@@ -429,8 +465,8 @@ export class SafraAdapter implements BankAdapter {
     // =============================
     // HELPER: Select ng-select option
     // =============================
-    private async selectNgOption(page: Page, selector: string, value: string): Promise<void> {
-        const ngSelect = page.locator(selector);
+    private async selectNgOption(page: Page, selectorOrLocator: string | ReturnType<Page['locator']>, value: string): Promise<void> {
+        const ngSelect = typeof selectorOrLocator === 'string' ? page.locator(selectorOrLocator) : selectorOrLocator;
         await ngSelect.waitFor({ state: 'visible', timeout: 10000 });
 
         // Click to open the dropdown
@@ -448,11 +484,13 @@ export class SafraAdapter implements BankAdapter {
         try {
             await option.waitFor({ state: 'visible', timeout: 5000 });
             await option.click();
-            console.log(`[SafraAdapter] → ng-select ${selector}: selected "${value}"`);
+            const selectorName = typeof selectorOrLocator === 'string' ? selectorOrLocator : 'custom-locator';
+            console.log(`[SafraAdapter] → ng-select ${selectorName}: selected "${value}"`);
         } catch {
             // Fallback: press Enter to select the first filtered result
             await page.keyboard.press('Enter');
-            console.log(`[SafraAdapter] → ng-select ${selector}: selected via Enter`);
+            const selectorName = typeof selectorOrLocator === 'string' ? selectorOrLocator : 'custom-locator';
+            console.log(`[SafraAdapter] → ng-select ${selectorName}: selected via Enter`);
         }
     }
 
@@ -480,21 +518,30 @@ export class SafraAdapter implements BankAdapter {
     private async extractInstallmentValue(page: Page, months: number): Promise<SimulationOffer | null> {
         try {
             const data = await page.evaluate((m) => {
-                const allElements = Array.from(document.querySelectorAll('*'));
-
                 let monthlyPayment = 0;
                 let interestRate = 0;
                 let totalValue = 0;
+
+                // 1) Novo layout swiper: tenta extrair direto do label específico (Ex: <label for="60">)
+                const labelItem = document.querySelector(`label[for="${m}"]`);
+                if (labelItem) {
+                    const textContent = labelItem.textContent?.replace(/\s+/g, ' ').replace(/\u00A0/g, ' ').trim() || '';
+                    const matchVal = textContent.match(/R\$\s*([\d.,]+)/i);
+                    if (matchVal) {
+                        monthlyPayment = parseFloat(matchVal[1].replace(/\./g, '').replace(',', '.'));
+                    }
+                }
+
+                const allElements = Array.from(document.querySelectorAll('*'));
 
                 for (const el of allElements) {
                     const text = el.textContent?.replace(/\s+/g, ' ').trim() || '';
 
                     // The image shows: "60 PARCELAS DE: R$ 790,86" usually inside a stylized block
-                    if (text.match(/PARCELAS\s+DE\s*:\s*R\$\s*([\d.,]+)/i)) {
+                    if (monthlyPayment === 0 && text.match(/PARCELAS\s+DE\s*:\s*R\$\s*([\d.,]+)/i)) {
                         const match = text.match(/PARCELAS\s+DE\s*:\s*R\$\s*([\d.,]+)/i);
                         if (match) {
                             monthlyPayment = parseFloat(match[1].replace(/\./g, '').replace(',', '.'));
-                            break; // Se achou exatamente "parcelas de: R$", não precisa procurar mais
                         }
                     }
 

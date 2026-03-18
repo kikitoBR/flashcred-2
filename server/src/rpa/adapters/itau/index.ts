@@ -105,6 +105,24 @@ export class ItauAdapter implements BankAdapter {
             await page.locator('button:has-text("Continuar")').first().click({ force: true });
             await page.waitForTimeout(4000);
 
+            // ── VALIDAR SE O CPF FOI REJEITADO (SEM CONDIÇÕES APROVÁVEIS) ──
+            try {
+                console.log('[ItauAdapter] Checking if client CPF has approved conditions...');
+                const cpfErrorMessage = page.locator('ids-form-message .ids-form-message--error').filter({ hasText: /Não temos condições|condições aprováveis/i }).first();
+                if (await cpfErrorMessage.isVisible({ timeout: 2000 })) {
+                    const msgText = await cpfErrorMessage.innerText();
+                    // Clean text (remove icon texts like "aviso_outline" or excess spaces)
+                    const cleanMsg = msgText.replace(/aviso_outline/i, '').replace(/\s+/g, ' ').trim();
+                    console.error(`[ItauAdapter] ❌ CPF Rejected: ${cleanMsg}`);
+                    
+                    result.status = 'ERROR';
+                    result.message = `Cliente não aprovado: ${cleanMsg}`;
+                    return result; // Interrompe imediatamente a simulação
+                }
+            } catch (err) {
+                // Ignore se não encontrar mensagem de erro
+            }
+
             // Step 3: Vehicle Data
             // await page.locator('label:has-text("Usado")').first().click({ force: true });
             // await page.waitForTimeout(1500);
@@ -216,6 +234,37 @@ export class ItauAdapter implements BankAdapter {
                 } catch (err) {
                     console.error('[ItauAdapter] Exception handling down payment:', err);
                 }
+            }
+
+            // ── VALIDAR SE O BANCO REJEITOU A ENTRADA / VALOR ──
+            try {
+                console.log('[ItauAdapter] Checking if simulaton was rejected due to minimum down payment...');
+                // O HTML possui a estrutura .ids-d-flex contendo "Não aprovamos"
+                const notApprovedContent = page.locator('div.ids-d-flex, .ids-flex-wrap').filter({ hasText: 'Não aprovamos' }).first();
+                
+                if (await notApprovedContent.isVisible({ timeout: 2000 })) {
+                    // Tenta encontrar a label especifica que diz "abaixo de R$ X de entrada"
+                    const minEntrySpan = notApprovedContent.locator('span[aria-label*="de entrada"], span[aria-label*="abaixo de"]').first();
+                    let minEntryMsg = '';
+                    
+                    if (await minEntrySpan.isVisible()) {
+                        minEntryMsg = await minEntrySpan.getAttribute('aria-label') || await minEntrySpan.innerText();
+                    } else {
+                        // Fallback: pega o texto todo do container para não perder a info
+                        minEntryMsg = await notApprovedContent.innerText();
+                    }
+
+                    const cleanMsg = minEntryMsg.replace(/\s+/g, ' ').trim();
+                    console.error(`[ItauAdapter] ❌ Simulation rejected by Itau: ${cleanMsg}`);
+                    
+                    result.status = 'ERROR';
+                    result.message = `Simulação não aprovada pelo Itaú: ${cleanMsg}`;
+                    // Retorna cedo, parando a automação e não vai para a etapa de Return ou Scraping
+                    return result;
+                }
+            } catch (err) {
+                // Ignore se não encontrar o alerta de erro
+                console.log('[ItauAdapter] Down payment seems accepted (no rejection alert found).');
             }
 
             // ── HANDLE LOJISTA RETURN (RE) ──
