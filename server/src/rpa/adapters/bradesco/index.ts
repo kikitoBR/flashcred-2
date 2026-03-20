@@ -33,48 +33,73 @@ export class BradescoAdapter implements BankAdapter {
                 return true;
             }
 
-            // Fill username (CPF)
-            const usernameField = page.locator('input[formcontrolname="username"], input[mask="000.000.000-00"]').first();
-            await usernameField.waitFor({ state: 'visible', timeout: 15000 });
-            await usernameField.click();
-            await usernameField.fill('');
-            await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 50 });
+            let loginAttempts = 0;
+            const maxAttempts = 5;
 
-            // Fill password
-            const passwordField = page.locator('input[formcontrolname="password"], input[type="password"]').first();
-            await passwordField.waitFor({ state: 'visible', timeout: 5000 });
-            await passwordField.click();
-            await passwordField.fill('');
-            await page.keyboard.type(credentials.password || '', { delay: 50 });
-            await page.waitForTimeout(500);
+            while (loginAttempts < maxAttempts) {
+                loginAttempts++;
+                console.log(`[BradescoAdapter] Login attempt ${loginAttempts}/${maxAttempts}...`);
 
-            // Click Entrar
-            const loginBtn = page.locator('button[type="submit"]:has-text("Entrar")').first();
-            await loginBtn.waitFor({ state: 'visible', timeout: 5000 });
-            
-            // Try standard click, fallback to JS event evaluation if intercepted
-            try {
-                await loginBtn.click({ delay: 100 });
-            } catch (e) {
-                await loginBtn.evaluate((node) => {
-                    const btn = node as HTMLButtonElement;
-                    if (!btn.disabled) {
-                        btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                // Fill username (CPF)
+                const usernameField = page.locator('input[formcontrolname="username"], input[mask="000.000.000-00"]').first();
+                await usernameField.waitFor({ state: 'visible', timeout: 15000 });
+                await usernameField.click();
+                await usernameField.fill('');
+                await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 50 });
+
+                // Fill password
+                const passwordField = page.locator('input[formcontrolname="password"], input[type="password"]').first();
+                await passwordField.waitFor({ state: 'visible', timeout: 5000 });
+                await passwordField.click();
+                await passwordField.fill('');
+                await page.keyboard.type(credentials.password || '', { delay: 50 });
+                await page.waitForTimeout(500);
+
+                // Click Entrar
+                const loginBtn = page.locator('button[type="submit"]:has-text("Entrar")').first();
+                await loginBtn.waitFor({ state: 'visible', timeout: 5000 });
+                
+                // Try standard click, fallback to JS event evaluation if intercepted
+                try {
+                    await loginBtn.click({ delay: 100 });
+                } catch (e) {
+                    await loginBtn.evaluate((node) => {
+                        const btn = node as HTMLButtonElement;
+                        if (!btn.disabled) {
+                            btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                        }
+                    });
+                }
+
+                // Wait for navigation away from login OR reCAPTCHA error
+                try {
+                    const raceResult = await Promise.race([
+                        page.waitForURL(url => !url.toString().includes('login'), { timeout: 20000 }).then(() => 'success'),
+                        page.waitForSelector('app-alert-message:has-text("Erro ao tentar verificar o reCAPTCHA")', { state: 'visible', timeout: 20000 }).then(() => 'recaptcha_error')
+                    ]);
+
+                    if (raceResult === 'success') {
+                        console.log(`[BradescoAdapter] ✅ Login OK → ${page.url()}`);
+                        await page.waitForTimeout(3000); // SPA stabilization
+                        return true;
+                    } else if (raceResult === 'recaptcha_error') {
+                        console.log(`[BradescoAdapter] ⚠️ reCAPTCHA error on attempt ${loginAttempts}. Retrying...`);
+                        // optionally close the alert if there's a close button, but usually typing again is enough
+                        await page.waitForTimeout(2000);
+                        continue;
                     }
-                });
+                } catch (e) {
+                    if (!page.url().includes('login')) {
+                        console.log(`[BradescoAdapter] ✅ Login OK (Detected via URL after timeout) → ${page.url()}`);
+                        return true;
+                    }
+                    console.error('[BradescoAdapter] ❌ Login failed - Timeout waiting for redirect.');
+                    return false;
+                }
             }
-
-            // Wait for navigation away from login
-            try {
-                await page.waitForURL(url => !url.toString().includes('login'), { timeout: 45000 });
-                console.log(`[BradescoAdapter] ✅ Login OK → ${page.url()}`);
-                await page.waitForTimeout(3000); // SPA stabilization
-                return true;
-            } catch {
-                if (!page.url().includes('login')) return true;
-                console.error('[BradescoAdapter] ❌ Login failed - Timeout waiting for redirect.');
-                return false;
-            }
+            
+            console.error('[BradescoAdapter] ❌ Login failed - Max attempts reached.');
+            return false;
         } catch (error: any) {
             console.error('[BradescoAdapter] Login exception:', error.message);
             return false;
@@ -118,7 +143,22 @@ export class BradescoAdapter implements BankAdapter {
             // ── Step 3: Avançar ──
             const avancarBtn1 = page.locator('button:has-text("Avançar")').first();
             await avancarBtn1.click();
-            await page.waitForTimeout(3000); // Wait for modal animation or navigation
+            
+            console.log('[BradescoAdapter] Waiting to see next step (Birthdate modal, Error modal, or UF Selection)...');
+            try {
+                const nextStep = await Promise.race([
+                    page.waitForSelector('app-simulation-not-completed-modal:has-text("Cliente não elegível")', { state: 'visible', timeout: 15000 }).then(() => 'ineligible'),
+                    page.waitForSelector('input[formcontrolname="dataDeNascimento"]', { state: 'visible', timeout: 15000 }).then(() => 'birthdate'),
+                    page.waitForSelector('mat-select[formcontrolname="ufDeLicenciamento"]', { state: 'visible', timeout: 15000 }).then(() => 'uf')
+                ]);
+
+                if (nextStep === 'ineligible') {
+                    console.log('[BradescoAdapter] ❌ Cliente não elegível modal detected!');
+                    return { bankId: this.id, status: 'ERROR', message: 'Cliente não elegível', offers: [] };
+                }
+            } catch (e) {
+                console.log('[BradescoAdapter] Fallback check: Proceeding without explicit modal match.');
+            }
 
             // ── Step 4: Handle User Info Modal ──
             // Sometimes it asks for birthDate and gender if it's a new or unverified client
