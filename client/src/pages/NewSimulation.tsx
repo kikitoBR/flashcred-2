@@ -292,8 +292,23 @@ export const NewSimulation = () => {
 
         // Update Client Score only if registered
         if (simulationType === 'registered') {
-            const approvedCount = results.filter(r => r.status === 'APPROVED').length;
-            const totalSimulated = results.length;
+            // Filter out technical failures that shouldn't affect the score
+            const validResultsForScore = results.filter(r => {
+                if (r.status === 'REJECTED' && r.reason) {
+                    const reasonLower = r.reason.toLowerCase();
+                    if (reasonLower.includes('usuário e/ou senha') || 
+                        reasonLower.includes('falha geral ao conectar') ||
+                        r.reason.includes('Usuário e/ou senha inválido(s)') ||
+                        r.reason.includes('Falha geral ao conectar no sistema do banco')) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            const approvedCount = validResultsForScore.filter(r => r.status === 'APPROVED').length;
+            const totalSimulated = validResultsForScore.length;
+            
             if (totalSimulated > 0) {
                 const newScore = Math.round((approvedCount / totalSimulated) * 1000);
                 updateClientScore(client.id, newScore);

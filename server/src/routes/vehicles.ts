@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 // GET /api/vehicles
-router.get('/', async (req, res: any) => {
+router.get('/', async (req: any, res: any) => {
     try {
         const tenantId = req.tenant.id;
         const vehicles = await query('SELECT * FROM vehicles WHERE tenant_id = ? ORDER BY created_at DESC', [tenantId]);
@@ -34,11 +34,12 @@ router.post('/', async (req, res: any) => {
 
         const id = uuidv4();
         const imagesJson = JSON.stringify(images || []);
+        const userId = req.user?.id;
 
         await query(
-            `INSERT INTO vehicles (id, tenant_id, brand, model, version, year, price, plate, mileage, images_json, status, uf, vehicle_condition)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)`,
-            [id, tenantId, brand, model, version || null, year, price, plate, mileage, imagesJson, uf || null, condition || 'SEMINOVO']
+            `INSERT INTO vehicles (id, tenant_id, user_id, brand, model, version, year, price, plate, mileage, images_json, status, uf, vehicle_condition)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)`,
+            [id, tenantId, userId, brand, model, version || null, year, price, plate, mileage, imagesJson, uf || null, condition || 'SEMINOVO']
         );
 
         res.status(201).json({ id, message: 'Vehicle created successfully' });
@@ -57,12 +58,17 @@ router.put('/:id', async (req, res: any) => {
 
         const imagesJson = JSON.stringify(images || []);
 
-        const result: any = await query(
-            `UPDATE vehicles 
+        let sql = `UPDATE vehicles 
              SET brand = ?, model = ?, version = ?, year = ?, price = ?, plate = ?, mileage = ?, images_json = ?, status = ?, uf = ?, vehicle_condition = ?
-             WHERE id = ? AND tenant_id = ?`,
-            [brand, model, version || null, year, price, plate, mileage, imagesJson, status || 'AVAILABLE', uf || null, condition || 'SEMINOVO', id, tenantId]
-        );
+             WHERE id = ? AND tenant_id = ?`;
+        let params: any[] = [brand, model, version || null, year, price, plate, mileage, imagesJson, status || 'AVAILABLE', uf || null, condition || 'SEMINOVO', id, tenantId];
+
+        if (req.user?.role === 'vendedor') {
+            sql += ' AND user_id = ?';
+            params.push(req.user?.id);
+        }
+
+        const result: any = await query(sql, params);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: 'Vehicle not found or unauthorized' });

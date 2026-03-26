@@ -1,11 +1,21 @@
 
-const API_URL = 'http://localhost:3001/api';
+const getApiUrl = () => {
+    const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+    return isLocalhost ? 'http://localhost:3001/api' : '/api';
+};
+
+const API_URL = getApiUrl();
 
 const getHeaders = () => {
-    return {
-        'Content-Type': 'application/json',
-        'x-tenant-id': 'tenant-123' // Valor hardcoded para teste, idealmente viria de um contexto de auth
+    const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+    const token = localStorage.getItem('token');
+    const headers: any = {
+        'Content-Type': 'application/json'
     };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (isLocalhost) headers['x-tenant-id'] = 'demo';
+    
+    return headers;
 };
 
 export const salesService = {

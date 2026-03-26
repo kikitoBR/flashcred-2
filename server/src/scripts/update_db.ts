@@ -47,6 +47,17 @@ async function updateDb() {
             console.log('birth_date column check skipped or failed (might exist).', e.message);
         }
 
+        // Add user_id column to data entities
+        try {
+            await query("ALTER TABLE clients ADD COLUMN user_id VARCHAR(36)");
+            await query("ALTER TABLE vehicles ADD COLUMN user_id VARCHAR(36)");
+            await query("ALTER TABLE sales ADD COLUMN user_id VARCHAR(36)");
+            await query("ALTER TABLE simulations ADD COLUMN user_id VARCHAR(36)");
+            console.log('Added user_id column to entities.');
+        } catch (e: any) {
+            console.log('user_id column check skipped or failed (might exist).', e.message);
+        }
+
         // --- FIPE Tables Creation ---
         try {
             await query(`

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 // GET /api/clients
-router.get('/', async (req, res: any) => {
+router.get('/', async (req: any, res: any) => {
     try {
         const tenantId = req.tenant.id;
         const clients = await query('SELECT * FROM clients WHERE tenant_id = ? ORDER BY created_at DESC', [tenantId]);
@@ -34,11 +34,12 @@ router.post('/', async (req, res: any) => {
         const id = uuidv4();
         const addressJson = JSON.stringify(address || {});
         const cnhJson = JSON.stringify(cnh || {});
+        const userId = req.user?.id;
 
         await query(
-            `INSERT INTO clients (id, tenant_id, name, cpf, email, phone, income, status, address_json, cnh_json, birth_date, score)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)`,
-            [id, tenantId, name, cpf, email, phone, income || 0, addressJson, cnhJson, birthDate || null, score || 0]
+            `INSERT INTO clients (id, tenant_id, user_id, name, cpf, email, phone, income, status, address_json, cnh_json, birth_date, score)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)`,
+            [id, tenantId, userId, name, cpf, email, phone, income || 0, addressJson, cnhJson, birthDate || null, score || 0]
         );
 
         res.status(201).json({ id, message: 'Client created successfully' });
@@ -58,12 +59,17 @@ router.put('/:id', async (req, res: any) => {
         const addressJson = JSON.stringify(address || {});
         const cnhJson = JSON.stringify(cnh || {});
 
-        await query(
-            `UPDATE clients 
+        let sql = `UPDATE clients 
              SET name = ?, cpf = ?, email = ?, phone = ?, income = ?, address_json = ?, cnh_json = ?, birth_date = ?, score = ?
-             WHERE id = ? AND tenant_id = ?`,
-            [name, cpf, email, phone, income || 0, addressJson, cnhJson, birthDate || null, score || 0, id, tenantId]
-        );
+             WHERE id = ? AND tenant_id = ?`;
+        let params: any[] = [name, cpf, email, phone, income || 0, addressJson, cnhJson, birthDate || null, score || 0, id, tenantId];
+
+        if (req.user?.role === 'vendedor') {
+            sql += ' AND user_id = ?';
+            params.push(req.user?.id);
+        }
+
+        await query(sql, params);
 
         res.json({ message: 'Client updated successfully' });
     } catch (error) {

@@ -6,13 +6,19 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 // GET /api/sales - List all sales for tenant
-router.get('/', async (req, res: any) => {
+router.get('/', async (req: any, res: any) => {
     try {
         const tenantId = req.tenant.id;
-        const sales = await query(
-            `SELECT * FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100`,
-            [tenantId]
-        );
+        
+        let sql = `SELECT * FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100`;
+        let params: any[] = [tenantId];
+        
+        if (req.user?.role === 'vendedor') {
+            sql = `SELECT * FROM sales WHERE tenant_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 100`;
+            params.push(req.user?.id);
+        }
+        
+        const sales = await query(sql, params);
         res.json(sales);
     } catch (error) {
         console.error('Error fetching sales:', error);
@@ -21,13 +27,19 @@ router.get('/', async (req, res: any) => {
 });
 
 // GET /api/sales/simulations - Get all simulations history
-router.get('/simulations', async (req, res: any) => {
+router.get('/simulations', async (req: any, res: any) => {
     try {
         const tenantId = req.tenant.id;
-        const simulations = await query(
-            `SELECT * FROM simulations WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100`,
-            [tenantId]
-        );
+        
+        let sql = `SELECT * FROM simulations WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100`;
+        let params: any[] = [tenantId];
+        
+        if (req.user?.role === 'vendedor') {
+            sql = `SELECT * FROM simulations WHERE tenant_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 100`;
+            params.push(req.user?.id);
+        }
+        
+        const simulations = await query(sql, params);
         res.json(simulations);
     } catch (error) {
         console.error('Error fetching simulations:', error);
@@ -41,8 +53,7 @@ router.get('/opportunities', async (req, res: any) => {
         const tenantId = req.tenant.id;
 
         // Remarketing: Approved simulations from > 5 minutes ago that DO NOT have a finalized sale
-        const remarketing = await query(
-            `SELECT s.id, s.client_name as name, s.vehicle_description as car, s.created_at as date, s.status, 
+        let remarketingSql = `SELECT s.id, s.client_name as name, s.vehicle_description as car, s.created_at as date, s.status, 
                     s.client_cpf as cpf, 'N/A' as phone, 0 as income, 'N/A' as email
              FROM simulations s
              WHERE s.tenant_id = ? 
@@ -53,20 +64,29 @@ router.get('/opportunities', async (req, res: any) => {
                    WHERE sa.tenant_id = s.tenant_id 
                      AND sa.client_cpf = s.client_cpf 
                      AND sa.status = 'FINALIZED'
-               )
-             LIMIT 50`,
-            [tenantId]
-        );
+               )`;
+        let remarketingParams: any[] = [tenantId];
 
-        // Retry: Rejected simulations from > 10 minutes ago (adjusted for testing)
-        const retry = await query(
-            `SELECT id, client_name as name, vehicle_description as car, created_at as date, 
+        // Retry: Rejected simulations from > 10 minutes ago
+        let retrySql = `SELECT id, client_name as name, vehicle_description as car, created_at as date, 
                     client_cpf as cpf, 'N/A' as phone, 0 as income, 'N/A' as email
              FROM simulations 
-             WHERE tenant_id = ? AND status LIKE 'REJECT%' AND created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-             LIMIT 50`,
-            [tenantId]
-        );
+             WHERE tenant_id = ? AND status LIKE 'REJECT%' AND created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)`;
+        let retryParams: any[] = [tenantId];
+
+        if (req.user?.role === 'vendedor') {
+            const userId = req.user?.id;
+            remarketingSql += ' AND s.user_id = ? ';
+            remarketingParams.push(userId);
+            retrySql += ' AND user_id = ? ';
+            retryParams.push(userId);
+        }
+
+        remarketingSql += ' LIMIT 50';
+        retrySql += ' LIMIT 50';
+
+        const remarketing = await query(remarketingSql, remarketingParams);
+        const retry = await query(retrySql, retryParams);
 
         res.json({ remarketing, retry });
     } catch (error) {
@@ -80,43 +100,53 @@ router.get('/stats', async (req, res: any) => {
     try {
         const tenantId = req.tenant.id;
         const today = new Date().toISOString().split('T')[0];
+        
+        let userIdFilter = '';
+        let queryParams: any[] = [tenantId];
+        let todayParams: any[] = [tenantId, today];
+
+        if (req.user?.role === 'vendedor') {
+            userIdFilter = ' AND user_id = ?';
+            const userId = req.user?.id;
+            queryParams.push(userId);
+            todayParams.push(userId);
+        }
 
         // Basic KPI counts
         const [totalSims] = await query(
-            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ?`,
-            [tenantId]
+            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ?${userIdFilter}`,
+            queryParams
         ) as any[];
 
         const [todaySims] = await query(
-            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ? AND DATE(created_at) = ?`,
-            [tenantId, today]
+            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ? AND DATE(created_at) = ?${userIdFilter}`,
+            todayParams
         ) as any[];
 
         const [todayApprovals] = await query(
-            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ? AND DATE(created_at) = ? AND status = 'APPROVED'`,
-            [tenantId, today]
+            `SELECT COUNT(*) as count FROM simulations WHERE tenant_id = ? AND DATE(created_at) = ? AND status = 'APPROVED'${userIdFilter}`,
+            todayParams
         ) as any[];
 
         const [totalFinanced] = await query(
-            `SELECT COALESCE(SUM(financed_value), 0) as total FROM sales WHERE tenant_id = ? AND status = 'FINALIZED'`,
-            [tenantId]
+            `SELECT COALESCE(SUM(financed_value), 0) as total FROM sales WHERE tenant_id = ? AND status = 'FINALIZED'${userIdFilter}`,
+            queryParams
         ) as any[];
 
         // Monthly Performance (last 5 months sales)
-        // ... rest of the code is unchanged ...
         const monthlyData = await query(
             `SELECT DATE_FORMAT(sale_date, '%b') as name, SUM(financed_value) as value 
              FROM sales 
-             WHERE tenant_id = ? AND sale_date >= DATE_SUB(NOW(), INTERVAL 5 MONTH)
+             WHERE tenant_id = ? AND sale_date >= DATE_SUB(NOW(), INTERVAL 5 MONTH)${userIdFilter}
              GROUP BY DATE_FORMAT(sale_date, '%Y-%m'), DATE_FORMAT(sale_date, '%b')
              ORDER BY DATE_FORMAT(sale_date, '%Y-%m')`,
-            [tenantId]
+            queryParams
         );
 
         // Bank Performance via JSON Parsing of result_data
         const simulationsRaw = await query(
-            `SELECT bank_name, status, result_data FROM simulations WHERE tenant_id = ?`,
-            [tenantId]
+            `SELECT bank_name, status, result_data FROM simulations WHERE tenant_id = ?${userIdFilter}`,
+            queryParams
         ) as any[];
 
         const bankStatsMap: Record<string, { aprovados: number, reprovados: number }> = {};
@@ -199,12 +229,13 @@ router.post('/', async (req, res: any) => {
         } = req.body;
 
         const id = uuidv4();
+        const userId = req.user?.id;
 
         await query(
-            `INSERT INTO sales (id, tenant_id, client_id, client_name, client_cpf, vehicle_id, vehicle_description, 
+            `INSERT INTO sales (id, tenant_id, user_id, client_id, client_name, client_cpf, vehicle_id, vehicle_description, 
              bank_id, bank_name, financed_value, down_payment, installments, monthly_payment, interest_rate, status, sale_date)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, tenantId, clientId, clientName, clientCpf, vehicleId, vehicleDescription,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, tenantId, userId, clientId, clientName, clientCpf, vehicleId, vehicleDescription,
                 bankId, bankName, financedValue, downPayment || 0, installments || 48,
                 monthlyPayment, interestRate, status || 'FINALIZED', saleDate || new Date()]
         );
@@ -226,14 +257,16 @@ router.post('/simulation', async (req, res: any) => {
         } = req.body;
 
         const id = uuidv4();
+        const userId = req.user?.id;
 
         await query(
-            `INSERT INTO simulations (id, tenant_id, client_id, client_name, client_cpf, vehicle_id, vehicle_description, 
+            `INSERT INTO simulations (id, tenant_id, user_id, client_id, client_name, client_cpf, vehicle_id, vehicle_description, 
              bank_id, bank_name, status, result_data)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id,
                 tenantId,
+                userId,
                 clientId || null,
                 clientName || 'Cliente',
                 clientCpf || null,

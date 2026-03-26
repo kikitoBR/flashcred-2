@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 
 import { AppProvider } from './src/context/AppContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 // Pages
+import { Login } from './src/pages/Login';
 import { Dashboard } from './src/pages/Dashboard';
 import { Credentials } from './src/pages/Credentials';
 import { Statistics } from './src/pages/Statistics';
@@ -25,14 +27,16 @@ import { Clients } from './src/pages/Clients';
 import { Vehicles } from './src/pages/Vehicles';
 import { NewSimulation } from './src/pages/NewSimulation';
 import { SalesHistory } from './src/pages/SalesHistory';
+import { Users as UsersPage } from './src/pages/Users';
 
 // --- Layout & Main App ---
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, logout, loading } = useAuth();
 
-  const menuItems = [
+  let menuItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Painel', path: '/' },
     { icon: <Calculator size={20} />, label: 'Simulação', path: '/simulation' },
     { icon: <Users size={20} />, label: 'Clientes', path: '/clients' },
@@ -40,7 +44,22 @@ const Layout = () => {
     { icon: <History size={20} />, label: 'Vendas', path: '/sales' },
     { icon: <PieChart size={20} />, label: 'Estatísticas', path: '/statistics' },
     { icon: <Lock size={20} />, label: 'Credenciais', path: '/credentials' },
+    { icon: <Users size={20} />, label: 'Usuários', path: '/users' },
   ];
+
+  if (user?.role === 'vendedor') {
+    menuItems = menuItems.filter(i => !['Credenciais', 'Usuários', 'Vendas'].includes(i.label));
+  } else if (user?.role === 'gerente') {
+    menuItems = menuItems.filter(i => !['Credenciais', 'Usuários'].includes(i.label));
+  }
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="animate-spin w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent"></div></div>;
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -77,14 +96,14 @@ const Layout = () => {
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-4 py-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-500 flex items-center justify-center font-bold text-white shadow-lg">
-              JS
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-500 flex items-center justify-center font-bold text-white shadow-lg uppercase">
+              {user.email.charAt(0)}
             </div>
-            <div>
-              <p className="text-sm font-semibold">João Silva</p>
-              <p className="text-xs text-slate-500">Vendedor Sênior</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-semibold truncate" title={user.email}>{user.email.split('@')[0]}</p>
+              <p className="text-xs text-slate-500 capitalize">{user.role}</p>
             </div>
-            <LogOut size={16} className="ml-auto text-slate-500 hover:text-white cursor-pointer" />
+            <LogOut size={16} onClick={logout} className="ml-auto text-slate-500 hover:text-white cursor-pointer transition-colors" />
           </div>
         </div>
       </aside>
@@ -129,12 +148,13 @@ const Layout = () => {
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-500 flex items-center justify-center font-bold text-white">
-              JS
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-amber-500 flex items-center justify-center font-bold text-white uppercase">
+              {user.email.charAt(0)}
             </div>
-            <div>
-              <p className="text-sm font-semibold">João Silva</p>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-semibold truncate" title={user.email}>{user.email.split('@')[0]}</p>
             </div>
+            <LogOut size={16} onClick={logout} className="ml-auto text-slate-500 hover:text-white cursor-pointer transition-colors" />
           </div>
         </div>
       </div>
@@ -164,6 +184,8 @@ const Layout = () => {
               <Route path="/sales" element={<SalesHistory />} />
               <Route path="/statistics" element={<Statistics />} />
               <Route path="/credentials" element={<Credentials />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/sign-in" element={<Navigate to="/" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
@@ -176,9 +198,11 @@ const Layout = () => {
 const App = () => {
   return (
     <Router>
-      <AppProvider>
-        <Layout />
-      </AppProvider>
+      <AuthProvider>
+        <AppProvider>
+          <Layout />
+        </AppProvider>
+      </AuthProvider>
     </Router>
   );
 };

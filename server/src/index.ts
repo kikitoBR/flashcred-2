@@ -21,23 +21,31 @@ import salesRoutes from './routes/sales';
 import interactionRoutes from './routes/interactions';
 import credentialsRoutes from './routes/credentials';
 import fipeRoutes from './routes/fipe';
+import authRoutes from './routes/auth';
+import usersRoutes from './routes/users';
 
 // Apply tenant middleware to API routes
 app.use('/api', tenantMiddleware);
 
-// Register Routes
-app.use('/api/clients', clientRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/sales', salesRoutes);
-app.use('/api/interactions', interactionRoutes);
-app.use('/api/credentials', credentialsRoutes);
-app.use('/api/fipe', fipeRoutes);
+// Register Auth logic
+app.use('/api/auth', authRoutes);
+
+import { authMiddleware } from './middleware/auth';
+
+// Protect these routes with custom JWT auth
+app.use('/api/clients', authMiddleware, clientRoutes);
+app.use('/api/vehicles', authMiddleware, vehicleRoutes);
+app.use('/api/sales', authMiddleware, salesRoutes);
+app.use('/api/interactions', authMiddleware, interactionRoutes);
+app.use('/api/credentials', authMiddleware, credentialsRoutes);
+app.use('/api/fipe', authMiddleware, fipeRoutes);
+app.use('/api/users', usersRoutes);
 
 app.get('/', (req, res) => {
     res.send('FlashCred Server Running (Multi-Tenant)');
 });
 
-app.post('/api/simulate', async (req, res) => {
+app.post('/api/simulate', authMiddleware, async (req, res) => {
     try {
         const { client, vehicle, banks, options } = req.body;
 
