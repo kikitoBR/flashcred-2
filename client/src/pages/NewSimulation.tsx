@@ -43,6 +43,7 @@ export const NewSimulation = () => {
     const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
     // Financials
+    const [customVehiclePrice, setCustomVehiclePrice] = useGlobalState<number>('customVehiclePrice', 0, simulationState, setSimulationState);
     const [downPayment, setDownPayment] = useGlobalState<number>('downPayment', 0, simulationState, setSimulationState);
     const [dealerReturn, setDealerReturn] = useGlobalState<string>('dealerReturn', 'R6', simulationState, setSimulationState);
 
@@ -75,11 +76,14 @@ export const NewSimulation = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [finalizedOffer, setFinalizedOffer] = useState<SimulationOffer | null>(null);
 
-    // Update down payment default when vehicle changes
+    // Update down payment and custom price default when vehicle changes
     useEffect(() => {
         if (selectedVehicle) {
             const v = vehicles.find(veh => veh.id === selectedVehicle);
-            if (v) setDownPayment(v.price * 0.2); // Default 20%
+            if (v) {
+                setDownPayment(Math.round(v.price * 0.2)); // Default 20%
+                setCustomVehiclePrice(Math.round(v.price));
+            }
         }
     }, [selectedVehicle, vehicles]);
 
@@ -168,7 +172,7 @@ export const NewSimulation = () => {
                 console.log("Calling RPA Service for:", selectedRpaBanks);
                 const rpaResults = await rpaService.simulate({
                     client,
-                    vehicle: { ...vehicle, downPayment },
+                    vehicle: { ...vehicle, downPayment, price: customVehiclePrice },
                     banks: selectedRpaBanks,
                     options: {
                         safraCoefficient,
@@ -208,7 +212,7 @@ export const NewSimulation = () => {
                         } as SimulationOffer; // Add assertion 
                     }
                     const rate = 1.5 + Math.random() * 2.5;
-                    const financedAmount = vehicle.price - downPayment;
+                    const financedAmount = customVehiclePrice - downPayment;
                     const calculatePMT = (months: number) => {
                         const i = rate / 100;
                         return (financedAmount * i * Math.pow(1 + i, months)) / (Math.pow(1 + i, months) - 1);
@@ -525,19 +529,33 @@ export const NewSimulation = () => {
                                     <Badge variant="neutral">{vehicle.plate}</Badge>
                                 </div>
                             </div>
-                            <div className="flex flex-col justify-center">
-                                <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Entrada Sugerida</label>
-                                <div className="flex gap-2 items-center">
-                                    <span className="text-xs font-bold text-slate-400">R$</span>
-                                    <input
-                                        type="number"
-                                        className="bg-white border border-slate-300 rounded px-2 py-1 w-32 font-bold text-slate-900"
-                                        value={downPayment}
-                                        onChange={(e) => setDownPayment(Number(e.target.value))}
-                                    />
-                                    <span className="text-xs text-slate-400 ml-2">
-                                        ({Math.round((downPayment / vehicle.price) * 100)}%)
-                                    </span>
+                            <div className="flex flex-col justify-center gap-3">
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Valor do Veículo</label>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-xs font-bold text-slate-400">R$</span>
+                                        <input
+                                            type="number"
+                                            className="bg-white border border-slate-300 rounded px-2 py-1 w-32 font-bold text-slate-900"
+                                            value={Math.round(customVehiclePrice)}
+                                            onChange={(e) => setCustomVehiclePrice(Math.round(Number(e.target.value)))}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-slate-500 uppercase mb-1">Entrada Sugerida</label>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="text-xs font-bold text-slate-400">R$</span>
+                                        <input
+                                            type="number"
+                                            className="bg-white border border-slate-300 rounded px-2 py-1 w-32 font-bold text-slate-900"
+                                            value={Math.round(downPayment)}
+                                            onChange={(e) => setDownPayment(Math.round(Number(e.target.value)))}
+                                        />
+                                        <span className="text-xs text-slate-400 ml-2">
+                                            ({customVehiclePrice ? Math.round((downPayment / customVehiclePrice) * 100) : 0}%)
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

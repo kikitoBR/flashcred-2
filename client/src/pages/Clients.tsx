@@ -74,7 +74,7 @@ export const Clients = () => {
 
     // Form State
     const initialFormState = {
-        name: '', cpf: '', email: '', phone: '', income: '', score: '0',
+        name: '', cpf: '', email: '', phone: '', income: '', score: '0', birthDate: '',
         address: { street: '', number: '', neighborhood: '', city: '', state: '', zipCode: '' },
         cnh: { hasCnh: false, categories: [] as string[] },
         desiredVehicle: { type: '' as const, brand: '', model: '', priceRange: '' }
@@ -93,7 +93,8 @@ export const Clients = () => {
             name: client.name,
             cpf: client.cpf,
             email: client.email,
-            phone: client.phone,
+            phone: client.phone || '',
+            birthDate: client.birthDate ? client.birthDate.substring(0, 10) : '',
             income: client.income ? client.income.toString() : '',
             score: client.score.toString(),
             address: { ...client.address },
@@ -219,6 +220,7 @@ export const Clients = () => {
                             <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                                 <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Cliente</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider">Contato</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">Nascimento</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">Renda</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">Score</th>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase tracking-wider text-center">CNH</th>
@@ -263,6 +265,9 @@ export const Clients = () => {
                                                     <Phone size={10} className="text-emerald-500" /> {client.phone}
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="text-sm font-medium text-slate-700">{client.birthDate ? new Date(client.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="inline-flex flex-col items-center">
@@ -374,6 +379,7 @@ export const Clients = () => {
                             type="date"
                             value={formData.birthDate || ''}
                             onChange={(e: any) => setFormData({ ...formData, birthDate: e.target.value })}
+                            required
                         />
                         <div className="col-span-2">
                             <Input

@@ -14,6 +14,7 @@ router.get('/', async (req: any, res: any) => {
         // Parse JSON fields
         const parsedClients = (clients as any[]).map(c => ({
             ...c,
+            birthDate: c.birth_date,
             address: JSON.parse(c.address_json || '{}'),
             cnh: JSON.parse(c.cnh_json || '{}')
         }));

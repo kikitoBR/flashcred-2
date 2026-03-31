@@ -3,7 +3,7 @@ export interface Client {
     id: string;
     name: string;
     cpf: string;
-    birthDate?: string;
+    birthDate: string;
     email?: string;
     phone?: string;
     status?: string | 'ACTIVE';
