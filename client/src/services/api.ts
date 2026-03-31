@@ -161,7 +161,7 @@ export const credentialsService = {
         if (!response.ok) throw new Error('Failed to save credentials');
         return response.json();
     },
-    updateStatus: async (bankId: string, status: 'ACTIVE' | 'INVALID' | 'EXPIRED') => {
+    updateStatus: async (bankId: string, status: 'ACTIVE' | 'INACTIVE') => {
         const response = await fetch(`${API_URL}/credentials/${bankId}/status`, {
             method: 'PATCH',
             headers: getHeaders(),

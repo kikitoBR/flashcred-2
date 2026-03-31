@@ -57,7 +57,12 @@ app.post('/api/simulate', authMiddleware, async (req, res) => {
         }
 
         const selectedBanks = banks || ['c6'];
-        const results = await runSimulations(client, vehicle, selectedBanks, options);
+        
+        // Pass userId so orchestrator can fetch correct credentials
+        const simulationOptions = options || {};
+        simulationOptions.userId = req.user?.id;
+
+        const results = await runSimulations(client, vehicle, selectedBanks, simulationOptions);
 
         res.json(results);
 

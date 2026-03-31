@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Key, Eye, EyeOff, Save, Loader2, Power } from 'lucide-react';
 import { Card, Button } from '../../components/ui';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { BANKS } from '../../constants';
 import { Bank, BankCredential } from '../../types';
 import { credentialsService } from '../services/api';
@@ -19,7 +20,9 @@ const CredentialCard: React.FC<CredentialCardProps> = ({ bank, credential, onSav
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isStatusToggling, setIsStatusToggling] = useState(false);
+    const { user } = useAuth();
 
+    const isAdmin = user?.role === 'admin' || user?.role === 'gerente';
     const isActive = credential.status === 'ACTIVE' || !credential.status;
 
     useEffect(() => {
@@ -43,9 +46,10 @@ const CredentialCard: React.FC<CredentialCardProps> = ({ bank, credential, onSav
     };
 
     const handleToggleStatus = async () => {
+        if (!isAdmin) return;
         try {
             setIsStatusToggling(true);
-            const newStatus = isActive ? 'INVALID' : 'ACTIVE';
+            const newStatus = isActive ? 'INACTIVE' : 'ACTIVE';
             await credentialsService.updateStatus(bank.id, newStatus);
             onSaveSuccess(); // Refresh list to update UI state
         } catch (error) {
@@ -69,11 +73,12 @@ const CredentialCard: React.FC<CredentialCardProps> = ({ bank, credential, onSav
                             <p className="text-xs text-slate-400">RPA Status:</p>
                             <button
                                 onClick={handleToggleStatus}
-                                disabled={isStatusToggling}
+                                disabled={isStatusToggling || !isAdmin}
+                                title={!isAdmin ? "Apenas administradores podem alterar o status global deste banco." : "Ativar/Desativar banco para toda a locatária."}
                                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${isActive
                                     ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                                     : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
-                                    }`}
+                                    } ${!isAdmin && 'opacity-70 cursor-not-allowed'}`}
                             >
                                 {isStatusToggling ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />

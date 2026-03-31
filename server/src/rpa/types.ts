@@ -38,6 +38,7 @@ export interface SimulationInput {
         omniReturn?: string;
         itauReturn?: string;
         panReturn?: string;
+        userId?: string;
     };
 }
 

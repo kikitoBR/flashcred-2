@@ -15,14 +15,14 @@ export class CredentialService {
     /**
      * Fetch and decrypt credentials for a bank + tenant combination.
      */
-    async getCredentials(bankId: string, tenantId: string): Promise<Credential | null> {
+    async getCredentials(bankId: string, tenantId: string, userId: string): Promise<Credential | null> {
         try {
             const [rows]: any = await pool.execute(
                 `SELECT login, password as password_enc 
                  FROM bank_credentials 
-                 WHERE bank_id = ? AND tenant_id = ?
+                 WHERE bank_id = ? AND tenant_id = ? AND user_id = ?
                  LIMIT 1`,
-                [bankId, tenantId]
+                [bankId, tenantId, userId]
             );
 
             if (!rows || rows.length === 0) {

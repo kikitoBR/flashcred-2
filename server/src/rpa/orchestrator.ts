@@ -114,8 +114,15 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                 }
 
                 // Fetch credentials using original frontend ID to match DB
-                const tenantId = 'tenant-123';
-                const credentials = await credentialService.getCredentials(bank, tenantId);
+                const tenantId = 'tenant-123'; // Using demo tenant currently
+                const userId = input.options?.userId;
+                
+                if (!userId) {
+                    console.error(`[Orchestrator] Falha: userId é obrigatório para acessar credenciais. Banco: ${bank}`);
+                    return { bankId: bank, status: 'REJECTED', reason: 'Usuário não autenticado ou faltando ID.' };
+                }
+
+                const credentials = await credentialService.getCredentials(bank, tenantId, userId);
                 if (!credentials) {
                     console.error(`[Orchestrator] No credentials for ${bank}`);
                     return { bankId: bank, status: 'REJECTED', reason: 'Cliente não aprovado: Não temos condições aprováveis para este cliente.' };
