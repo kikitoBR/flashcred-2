@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users, Search, Plus, MapPin, Mail, Phone, Edit2, PlayCircle, X, MessageCircle
+    Users, Search, Plus, MapPin, Mail, Phone, Edit2, PlayCircle, X, MessageCircle, Trash2
 } from 'lucide-react';
 import { getWhatsAppLink, generateMessage } from '../utils/whatsapp';
 import { interactionsService } from '../services/api';
 import { useAppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Client } from '../types';
 import { clientService } from '../services/api';
 
@@ -67,6 +68,7 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
 
 export const Clients = () => {
     const { clients, setClients, refreshData } = useAppContext();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -130,6 +132,18 @@ export const Clients = () => {
         } catch (error) {
             console.error("Failed to save client", error);
             alert("Erro ao salvar cliente.");
+        }
+    };
+
+    const handleDelete = async (client: Client) => {
+        if (window.confirm(`Tem certeza que deseja excluir o cliente ${client.name}?`)) {
+            try {
+                await clientService.remove(client.id);
+                await refreshData();
+            } catch (error) {
+                console.error("Failed to delete client", error);
+                alert("Erro ao excluir cliente. Verifique se existem vendas atreladas a este cliente.");
+            }
         }
     };
 
@@ -326,6 +340,15 @@ export const Clients = () => {
                                                 >
                                                     <PlayCircle size={16} />
                                                 </button>
+                                                {user?.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => handleDelete(client)}
+                                                        className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-800 transition-colors"
+                                                        title="Excluir Cliente"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

@@ -79,4 +79,23 @@ router.put('/:id', async (req, res: any) => {
     }
 });
 
+// DELETE /api/clients/:id
+router.delete('/:id', async (req: any, res: any) => {
+    try {
+        const tenantId = req.tenant.id;
+        const { id } = req.params;
+
+        if (req.user?.role !== 'admin') {
+            return res.status(403).json({ error: 'Acesso negado. Apenas administradores podem excluir clientes.' });
+        }
+
+        await query('DELETE FROM clients WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+
+        res.json({ message: 'Client deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        res.status(500).json({ error: 'Failed to delete client' });
+    }
+});
+
 export default router;

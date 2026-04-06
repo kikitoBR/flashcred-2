@@ -206,6 +206,34 @@ export class ItauAdapter implements BankAdapter {
             await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
             await page.waitForTimeout(2000);
 
+            // ── LER MENSAGEM "NÃO APROVAMOS ABAIXO DE R$ X" ANTES DE TUDO ──
+            if (input.downPayment && input.downPayment > 0) {
+                try {
+                    const rejectionNotice = await page.locator('.ids-d-flex.ids-flex-wrap:has(p:has-text("Não aprovamos"))').first();
+                    if (await rejectionNotice.isVisible()) {
+                        const fullText = await rejectionNotice.innerText();
+                        console.log(`[ItauAdapter] Found early rejection notice: "${fullText.replace(/\n/g, ' ')}"`);
+                        
+                        const match = fullText.match(/R\$\s*([\d.,]+)/);
+                        if (match) {
+                            const minValCents = parseInt(match[1].replace(/\D/g, ''), 10);
+                            const requestedCents = Math.round(input.downPayment * 100);
+                            
+                            // Se a entrada pedida for menor que a entrada mínima exigida pelo banco, para o processo
+                            if (requestedCents < minValCents) {
+                                const formattedMinEntry = (minValCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                                console.error(`[ItauAdapter] ❌ Missing minimum down payment. Requested: ${requestedCents/100}, Minimum Required: ${minValCents/100}`);
+                                result.status = 'ERROR';
+                                result.message = `Motivo: Simulação não aprovada pelo Itaú: abaixo de ${formattedMinEntry} de entrada.`;
+                                return result;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.log(`[ItauAdapter] Early notice check failed (ignoring): ${err}`);
+                }
+            }
+
             // HANDLE DOWN PAYMENT (ENTRADA)
             if (input.downPayment && input.downPayment > 0) {
                 console.log('[ItauAdapter] Handling down payment field...');
@@ -250,37 +278,6 @@ export class ItauAdapter implements BankAdapter {
                 } catch (err) {
                     console.error('[ItauAdapter] Exception handling down payment:', err);
                 }
-            }
-
-            // ── VALIDAR SE O BANCO REJEITOU A ENTRADA / VALOR ──
-            try {
-                console.log('[ItauAdapter] Checking if simulaton was rejected due to minimum down payment...');
-                // O HTML possui a estrutura .ids-d-flex contendo "Não aprovamos"
-                const notApprovedContent = page.locator('div.ids-d-flex, .ids-flex-wrap').filter({ hasText: 'Não aprovamos' }).first();
-
-                if (await notApprovedContent.isVisible({ timeout: 2000 })) {
-                    // Tenta encontrar a label especifica que diz "abaixo de R$ X de entrada"
-                    const minEntrySpan = notApprovedContent.locator('span[aria-label*="de entrada"], span[aria-label*="abaixo de"]').first();
-                    let minEntryMsg = '';
-
-                    if (await minEntrySpan.isVisible()) {
-                        minEntryMsg = await minEntrySpan.getAttribute('aria-label') || await minEntrySpan.innerText();
-                    } else {
-                        // Fallback: pega o texto todo do container para não perder a info
-                        minEntryMsg = await notApprovedContent.innerText();
-                    }
-
-                    const cleanMsg = minEntryMsg.replace(/\s+/g, ' ').trim();
-                    console.error(`[ItauAdapter] ❌ Simulation rejected by Itau: ${cleanMsg}`);
-
-                    result.status = 'ERROR';
-                    result.message = `Simulação não aprovada pelo Itaú: ${cleanMsg}`;
-                    // Retorna cedo, parando a automação e não vai para a etapa de Return ou Scraping
-                    return result;
-                }
-            } catch (err) {
-                // Ignore se não encontrar o alerta de erro
-                console.log('[ItauAdapter] Down payment seems accepted (no rejection alert found).');
             }
 
             // ── HANDLE LOJISTA RETURN (RE) ──
@@ -457,7 +454,36 @@ export class ItauAdapter implements BankAdapter {
                 result.status = 'SUCCESS';
                 console.log(`[ItauAdapter] Found ${result.offers.length} offers!`);
             } else {
-                console.log('[ItauAdapter] WARNING: No offers matched regex. Check raw text logs.');
+                console.log('[ItauAdapter] WARNING: No offers matched regex. Checking if simulation was rejected...');
+                
+                // ── VALIDAR SE O BANCO REJEITOU A ENTRADA / VALOR ──
+                try {
+                    const notApprovedContent = page.locator('div.ids-d-flex, .ids-flex-wrap').filter({ hasText: 'Não aprovamos' }).first();
+
+                    if (await notApprovedContent.isVisible({ timeout: 2000 })) {
+                        const minEntrySpan = notApprovedContent.locator('span[aria-label*="de entrada"], span[aria-label*="abaixo de"]').first();
+                        let minEntryMsg = '';
+
+                        if (await minEntrySpan.isVisible()) {
+                            minEntryMsg = await minEntrySpan.getAttribute('aria-label') || await minEntrySpan.innerText();
+                        } else {
+                            minEntryMsg = await notApprovedContent.innerText();
+                        }
+
+                        const cleanMsg = minEntryMsg.replace(/\s+/g, ' ').trim();
+                        console.error(`[ItauAdapter] ❌ Simulation rejected by Itau: ${cleanMsg}`);
+
+                        result.status = 'ERROR';
+                        result.message = `Simulação não aprovada pelo Itaú: ${cleanMsg}`;
+                        return result;
+                    }
+                } catch (err) {
+                    // Ignore
+                }
+                
+                if (result.status === 'ERROR' && !result.message) {
+                    result.message = 'Nenhuma oferta encontrada na tela.';
+                }
             }
 
         } catch (error: any) {

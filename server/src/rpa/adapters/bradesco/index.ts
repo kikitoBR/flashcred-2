@@ -198,7 +198,15 @@ export class BradescoAdapter implements BankAdapter {
                 await birthDateField.click();
                 await birthDateField.fill('');
                 // Assuming format DDMMYYYY or DD/MM/YYYY
-                const birthClean = (input.client.birthDate || '01/01/1990').replace(/\D/g, '');
+                let birthClean = '01011990';
+                if (input.client.birthDate) {
+                    const parts = input.client.birthDate.split('T')[0].split('-');
+                    if (parts.length === 3) {
+                        birthClean = `${parts[2]}${parts[1]}${parts[0]}`; // DDMMYYYY
+                    } else {
+                        birthClean = input.client.birthDate.replace(/\D/g, '');
+                    }
+                }
                 await page.keyboard.type(birthClean, { delay: 50 });
 
                 // Find Gender Combobox: According to md, it just says "selecionar o sexo" via mat-select

@@ -84,6 +84,14 @@ export const clientService = {
         });
         if (!response.ok) throw new Error('Failed to update client');
         return response.json();
+    },
+    remove: async (id: string) => {
+        const response = await fetch(`${API_URL}/clients/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to delete client');
+        return response.json();
     }
 };
 

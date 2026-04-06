@@ -167,7 +167,8 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                                 description: o.description
                             })),
                             reason: simulationResult.message,
-                            warning: simulationResult.warning
+                            warning: simulationResult.warning,
+                            minimumDownPayment: simulationResult.minimumDownPayment
                         };
                     } else {
                         return {

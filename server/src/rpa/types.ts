@@ -60,6 +60,7 @@ export interface SimulationResult {
     offers: SimulationOffer[];
     screenshot?: string; // Base64 or path
     htmlDump?: string; // For debugging
+    minimumDownPayment?: number;
 }
 
 export interface BankAdapter {

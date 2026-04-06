@@ -805,6 +805,14 @@ export const NewSimulation = () => {
 
                                             {offer.status === 'APPROVED' ? (
                                                     <div className="col-span-2 md:col-span-4 mt-4">
+                                                        {offer.minimumDownPayment !== undefined && (
+                                                            <div className="mb-4 bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-center justify-between">
+                                                                <span className="text-sm font-semibold text-emerald-800">Entrada Mínima Recomendada:</span>
+                                                                <span className="text-sm font-bold text-emerald-900">
+                                                                    R$ {offer.minimumDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                         <p className="text-xs font-bold text-slate-500 uppercase mb-3">Opções de Parcelamento</p>
                                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                                             {offer.installments

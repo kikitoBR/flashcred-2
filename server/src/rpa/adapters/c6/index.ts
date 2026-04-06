@@ -112,7 +112,15 @@ export class C6Adapter implements BankAdapter {
             // Format data
             const cleanCpf = input.client.cpf.replace(/\D/g, '');
             const cleanPhone = (input.client.phone || '').replace(/\D/g, '');
-            const birthDate = input.client.birthDate ? input.client.birthDate.replace(/\D/g, '') : '01011980'; // fallback
+            let birthDate = '01011980'; // fallback
+            if (input.client.birthDate) {
+                const parts = input.client.birthDate.split('T')[0].split('-');
+                if (parts.length === 3) {
+                    birthDate = `${parts[2]}${parts[1]}${parts[0]}`; // DDMMYYYY
+                } else {
+                    birthDate = input.client.birthDate.replace(/\D/g, '');
+                }
+            }
 
             await page.locator('input[formcontrolname="numeroDocumento"]').fill(cleanCpf);
             await page.locator('input[formcontrolname="celular"]').fill(cleanPhone);
@@ -237,6 +245,43 @@ export class C6Adapter implements BankAdapter {
 
             // Adicional: aguardar 5 segundos garantindo que todos os cálculos e animações terminem
             await page.waitForTimeout(5000);
+
+            // BEFORE extracting offers: handle minimum down payment extraction and resetting
+            let extractedMinDownPayment: number | undefined;
+
+            try {
+                console.log('[C6Adapter] 💰 Checking minimum down payment recommended...');
+                // 1. Click the recommended minimum dot
+                const minMarker = page.locator('circle.marker.min-marker').first();
+                if (await minMarker.isVisible({ timeout: 3000 })) {
+                    await minMarker.click({ force: true });
+                    await page.waitForTimeout(1500); // aguarda atualizar o input
+
+                    // 2. Read the value from the input
+                    const entradaInput = page.locator('#entrada');
+                    if (await entradaInput.isVisible({ timeout: 2000 })) {
+                        const valStr = await entradaInput.inputValue(); // e.g. "R$ 15.000,00" ou "15.000,00"
+                        if (valStr) {
+                            const numericStr = valStr.replace(/[^\d,-]/g, '').replace(',', '.');
+                            extractedMinDownPayment = parseFloat(numericStr);
+                            console.log(`[C6Adapter] Minimum recommended down payment: R$ ${extractedMinDownPayment}`);
+                            result.minimumDownPayment = extractedMinDownPayment;
+                        }
+
+                        // 3. Re-enter the original downPayment
+                        if (input.downPayment !== undefined) {
+                            console.log(`[C6Adapter] 🔄 Re-entering original downPayment: R$ ${input.downPayment}`);
+                            await this.fillMoneyField(page, '#entrada', input.downPayment);
+                            // Press tab to trigger recalculation or just wait
+                            await page.keyboard.press('Tab');
+                            console.log('[C6Adapter] ⏳ Waiting for recalculation after restoring down payment...');
+                            await page.waitForTimeout(6000); // wait for recalculation again
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('[C6Adapter] ⚠️ Could not extract/restore minimum down payment:', e);
+            }
 
             const offersData = await page.evaluate(() => {
                 const offers: any[] = [];
