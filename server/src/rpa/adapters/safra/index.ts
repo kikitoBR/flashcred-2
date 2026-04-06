@@ -458,7 +458,7 @@ export class SafraAdapter implements BankAdapter {
             result.status = offers.length > 0 ? 'SUCCESS' : 'ERROR';
             result.message = offers.length > 0
                 ? `Collected ${offers.length} installment options`
-                : 'No installment data could be extracted';
+                : 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
 
             console.log(`[SafraAdapter] ✅ Simulation complete. ${offers.length} offers collected.`);
 

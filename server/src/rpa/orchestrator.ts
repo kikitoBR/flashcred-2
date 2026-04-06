@@ -159,6 +159,7 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                             interestRate: simulationResult.offers.find(o => o.interestRate > 0)?.interestRate || 0,
                             maxInstallments: 60,
                             downPayment: input.downPayment,
+                            minDownPayment: simulationResult.minDownPayment,
                             installments: simulationResult.offers.map(o => ({
                                 months: o.installments,
                                 value: o.monthlyPayment,

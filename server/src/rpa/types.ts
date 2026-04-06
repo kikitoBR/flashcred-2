@@ -57,6 +57,7 @@ export interface SimulationResult {
     status: 'SUCCESS' | 'ERROR' | 'LOGIN_FAILED' | 'BLOCKED' | 'REJECTED';
     message?: string;
     warning?: string;
+    minDownPayment?: number; // Valor mínimo de entrada (ex: Omni)
     offers: SimulationOffer[];
     screenshot?: string; // Base64 or path
     htmlDump?: string; // For debugging

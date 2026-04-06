@@ -174,7 +174,7 @@ export class C6Adapter implements BankAdapter {
                     // Wait, earlier I saw the frontend check sim.status === 'REJECTED'. So I'll use 'REJECTED'. 
                     // Let's modify result to REJECTED.
                     result.status = 'REJECTED';
-                    result.message = `${title} - ${reason}`;
+                    result.message = 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
                     
                     console.log(`[C6Adapter] Rejection reason: ${result.message}`);
                     
@@ -340,7 +340,7 @@ export class C6Adapter implements BankAdapter {
                 console.log(pageText.substring(0, 1500));
                 console.log('---------------------------------------');
 
-                result.message = 'A simulação não retornou opções de parcelamento ou os seletores visuais em tela mudaram.';
+                result.message = 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
             }
 
             return result;

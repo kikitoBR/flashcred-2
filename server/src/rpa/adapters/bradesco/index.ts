@@ -181,7 +181,7 @@ export class BradescoAdapter implements BankAdapter {
 
                 if (nextStep === 'ineligible') {
                     console.log('[BradescoAdapter] ❌ Cliente não elegível modal detected!');
-                    return { bankId: this.id, status: 'ERROR', message: 'Cliente não elegível', offers: [] };
+                    return { bankId: this.id, status: 'ERROR', message: 'Cliente não aprovado: Não temos condições aprováveis para este cliente.', offers: [] };
                 }
             } catch (e) {
                 console.log('[BradescoAdapter] Fallback check: Proceeding without explicit modal match.');

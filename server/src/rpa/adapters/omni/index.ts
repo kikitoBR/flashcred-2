@@ -140,7 +140,7 @@ export class OmniAdapter implements BankAdapter {
                 console.warn('[OmniAdapter] ⚠️ Timeout na análise de perfil. Verificando estado da página...');
                 // Última tentativa de check
                 if (page.url().includes('negado')) {
-                    result.message = 'Cliente negado pelo Omni';
+                    result.message = 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
                     return result;
                 }
             }
@@ -234,18 +234,24 @@ export class OmniAdapter implements BankAdapter {
             const downPaymentInput = page.locator('input[testid="down-payment-input"], input[formcontrolname="downPayment"]').first();
             await downPaymentInput.waitFor({ state: 'visible', timeout: 10000 });
 
-            // Raspar entrada mínima e máxima antes de preencher
-            let entryLimitsMsg = '';
+            // Raspar valor da entrada mínima exibida na tela
+            let minDownPaymentValue: number | undefined;
             try {
-                const limitsDiv = page.locator('div.down-payment__limits');
-                if (await limitsDiv.isVisible({ timeout: 3000 })) {
-                    const limitsText = await limitsDiv.innerText();
-                    console.log(`[OmniAdapter] 📊 Limites de entrada: ${limitsText}`);
-                    entryLimitsMsg = limitsText.replace(/\s+/g, ' ').trim();
+                const entradaMinimaSpan = page.locator('span:has-text("Entrada mínima")').first();
+                if (await entradaMinimaSpan.isVisible({ timeout: 3000 })) {
+                    const spanText = await entradaMinimaSpan.innerText();
+                    console.log(`[OmniAdapter] 📊 Texto entrada mínima: "${spanText}"`);
+                    // Extrair valor numérico de "Entrada mínima: R$ 21.245,4"
+                    const valueMatch = spanText.match(/R\$\s*[^\d]*([\d.,]+)/);
+                    if (valueMatch) {
+                        minDownPaymentValue = parseFloat(valueMatch[1].replace(/\./g, '').replace(',', '.'));
+                        console.log(`[OmniAdapter] ✅ Entrada mínima: R$ ${minDownPaymentValue}`);
+                    }
                 }
             } catch {
-                console.log('[OmniAdapter] ℹ️ Limites de entrada não encontrados.');
+                console.log('[OmniAdapter] ℹ️ Entrada mínima não encontrada na página.');
             }
+
 
             await this.fillCurrencyInput(page, downPaymentInput, entryValue);
 
@@ -348,14 +354,14 @@ export class OmniAdapter implements BankAdapter {
 
             if (result.offers.length > 0) {
                 result.status = 'SUCCESS';
-                // Incluir limites de entrada no message para o front
-                if (entryLimitsMsg) {
-                    result.message = entryLimitsMsg;
+                // Incluir entrada mínima no resultado
+                if (minDownPaymentValue) {
+                    result.minDownPayment = minDownPaymentValue;
                 }
                 console.log(`[OmniAdapter] ✅ ${result.offers.length} parcelas extraídas!`);
             } else {
                 console.warn('[OmniAdapter] ⚠️ Nenhuma parcela encontrada.');
-                result.message = 'Nenhuma parcela encontrada na página de resultados';
+                result.message = 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
             }
 
             return result;

@@ -74,10 +74,10 @@ export interface SimulationOffer {
     interestRate: number;
     maxInstallments: number;
     downPayment: number;
+    minDownPayment?: number; // Valor mínimo de entrada (ex: Omni)
     installments: { months: number; value: number; interestRate?: number; hasHighChance?: boolean; description?: string; }[];
     reason?: string;
-  warning?: string;
-  minimumDownPayment?: number;
+    warning?: string;
 }
 
 export interface BankCredential {

@@ -195,7 +195,7 @@ export class PanAdapter implements BankAdapter {
                 return {
                     bankId: this.id,
                     status: 'ERROR',
-                    message: 'Proposta recusada. Não conseguimos aprovar o crédito com as condições digitadas.',
+                    message: 'Cliente não aprovado: Não temos condições aprováveis para este cliente.',
                     offers: []
                 };
             }
@@ -389,7 +389,7 @@ export class PanAdapter implements BankAdapter {
                 console.log(`[PanAdapter] ✅ Found ${result.offers.length} offers!`);
             } else {
                 console.log('[PanAdapter] ⚠️ No offers extracted. Check selectors or page state.');
-                result.message = 'No offers found on page';
+                result.message = 'Cliente não aprovado: Não temos condições aprováveis para este cliente.';
             }
 
         } catch (error: any) {

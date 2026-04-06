@@ -805,11 +805,12 @@ export const NewSimulation = () => {
 
                                             {offer.status === 'APPROVED' ? (
                                                     <div className="col-span-2 md:col-span-4 mt-4">
-                                                        {offer.minimumDownPayment !== undefined && (
-                                                            <div className="mb-4 bg-emerald-50 border border-emerald-100 p-3 rounded-lg flex items-center justify-between">
-                                                                <span className="text-sm font-semibold text-emerald-800">Entrada Mínima Recomendada:</span>
-                                                                <span className="text-sm font-bold text-emerald-900">
-                                                                    R$ {offer.minimumDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                        {/* Entrada Mínima (Omni e outros que fornecem) */}
+                                                        {offer.minDownPayment != null && offer.minDownPayment > 0 && (
+                                                            <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+                                                                <span className="text-amber-600 text-sm">💰</span>
+                                                                <span className="text-sm text-amber-800 font-medium">
+                                                                    Entrada mínima: <strong className="text-amber-900">R$ {offer.minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                                                                 </span>
                                                             </div>
                                                         )}
