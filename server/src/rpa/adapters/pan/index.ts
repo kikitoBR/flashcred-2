@@ -202,7 +202,7 @@ export class PanAdapter implements BankAdapter {
 
             console.log('[PanAdapter] 30 seconds wait finished (or no rejection found), waiting for results cards...');
 
-            // Step 7.5: Configurar Retorno PAN (R0-R4)
+            // Step 7.5: Configurar Retorno PAN (R0-R4) e Entrada Mínima
             try {
                 // Wait for the first card to ensure we're targeting the most recent simulation
                 const firstCard = page.locator('mahoe-card, .card, app-deal-card').first();
@@ -211,9 +211,54 @@ export class PanAdapter implements BankAdapter {
                 // Strictly locate the button INSIDE the first card. This prevents falling back to older simulations.
                 const visualizarBtn = firstCard.locator('button.mahoe-button__ghost:has-text("Visualizar proposta"), button:has-text("Visualizar proposta")').first();
                 await visualizarBtn.waitFor({ state: 'visible', timeout: 60000 });
-                console.log('[PanAdapter] Clicando em Visualizar proposta para ajustar Retorno...');
+                console.log('[PanAdapter] Clicando em Visualizar proposta...');
                 await visualizarBtn.click({ force: true });
                 await page.waitForTimeout(2000);
+
+                // --- NOVO REGRA: Descobrir a Entrada Mínima ---
+                console.log('[PanAdapter] Testando entrada 0 para capturar entrada mínima...');
+                const entryInputSelector = 'mahoe-input[label="Entrada"] input, input[inputid="input-entry-value"], #input-entry-value';
+                const entryInput = page.locator(entryInputSelector).first();
+
+                if (await entryInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+                    // Limpar e preencher com 0
+                    await entryInput.click({ force: true });
+                    await entryInput.fill('');
+                    await page.keyboard.type('0', { delay: 50 });
+                    await page.keyboard.press('Tab');
+                    // Aguardar mensagem de erro aparecer
+                    await page.waitForTimeout(2000);
+
+                    try {
+                        const errorMsg = page.locator('app-error-message-blur[label="Entrada"] p, .values-input-error p:has-text("Mín")').first();
+                        if (await errorMsg.isVisible({ timeout: 5000 }).catch(() => false)) {
+                            const errorText = await errorMsg.textContent();
+                            if (errorText) {
+                                // Ex: "Mín: R$ 39.311,26"
+                                const minMatch = errorText.match(/M[íi]n:\s*R\$\s*([\d.,]+)/i);
+                                if (minMatch) {
+                                    const minValStr = minMatch[1].replace(/\./g, '').replace(',', '.');
+                                    result.minDownPayment = parseFloat(minValStr);
+                                    console.log(`[PanAdapter] Entrada mínima exigida capturada: R$ ${result.minDownPayment}`);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                         console.log('[PanAdapter] Nenhuma mensagem de entrada mínima apareceu.');
+                    }
+
+                    // Voltar a entrada original (ou 0 se não havia) para efetivar o recálculo com a opção do cliente
+                    const downPaymentToFill = input.downPayment || 0;
+                    console.log(`[PanAdapter] Voltando entrada para o valor original solicitado: R$ ${downPaymentToFill}`);
+                    await entryInput.click({ force: true });
+                    await entryInput.fill('');
+                    await page.keyboard.type(String(Math.round(downPaymentToFill)), { delay: 50 });
+                    await page.keyboard.press('Tab');
+                    await page.waitForTimeout(1000);
+                } else {
+                    console.log('[PanAdapter] ⚠️ Campo de entrada não encontrado após abrir Visualizar Proposta.');
+                }
+                // --- FIM ENTRADA MÍNIMA ---
 
                 const panReturn = input.options?.panReturn || '3'; // Default R3
                 const returnVal = panReturn.replace('R', '');
@@ -232,14 +277,27 @@ export class PanAdapter implements BankAdapter {
 
                 // Click Recalcular
                 console.log('[PanAdapter] Clicando em Recalcular...');
-                const recalcularBtn = page.locator('button.mahoe-button__secondary:has-text("Recalcular")').first();
+                const recalcularBtn = page.locator('mahoe-button.table-conditions__recalc__buttons button, .table-conditions__recalc__buttons button, button.mahoe-button__secondary:has-text("Recalcular")').first();
                 await recalcularBtn.waitFor({ state: 'visible', timeout: 10000 });
                 await recalcularBtn.click({ force: true });
 
                 console.log('[PanAdapter] Aguardando recálculo...');
-                await page.waitForTimeout(8000); // Wait for the network to resolve and animation
+                // Solução mais inteligente: aguardar a rede ficar ociosa e/ou verificar loaders
+                await page.waitForTimeout(1500); // Pequeno atraso para a animação do loader iniciar
+                try {
+                    // Aguarda a ausência do botão desabilitado e a resolução dos chamados de rede
+                    const loaderOrDisabled = page.locator('button:has-text("Recalcular")[disabled], mahoe-spinner, .mahoe-spinner').first();
+                    if (await loaderOrDisabled.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        console.log('[PanAdapter] Carregamento do recálculo detectado. Aguardando...');
+                        await loaderOrDisabled.waitFor({ state: 'hidden', timeout: 30000 });
+                    }
+                } catch (e) {
+                    // Sem spinner visível
+                }
+                await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+                await page.waitForTimeout(2000); // Algum buffer de garantia para a DOM atualizar
             } catch (e: any) {
-                console.log(`[PanAdapter] Aviso: Não foi possível ajustar o retorno PAN: ${e.message}`);
+                console.log(`[PanAdapter] Aviso: Não foi possível ajustar o retorno PAN ou extrair mínimo: ${e.message}`);
                 // Fallback wait if the button was not found, to ensure the page is fully loaded
                 await page.waitForTimeout(10000);
             }
@@ -381,7 +439,8 @@ export class PanAdapter implements BankAdapter {
                 description: o.isApproved === false && o.requiredEntry > 0 ? `Indisponível - Entrada Mínima: R$ ${o.requiredEntry.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : (o.text || `${o.installments}x`),
                 hasHighChance: o.isApproved !== false,
                 // We'll mark the specific ones as rejected if they are unavailable 
-                status: o.isApproved === false ? 'REJECTED' : 'APPROVED' // Note: 'status' isn't explicitly in SimulationOffer, but frontend map checks for overall simulation result
+                status: o.isApproved === false ? 'REJECTED' : 'APPROVED', // Note: 'status' isn't explicitly in SimulationOffer, but frontend map checks for overall simulation result
+                minDownPayment: result.minDownPayment
             })) as SimulationOffer[];
 
             if (result.offers.length > 0) {
