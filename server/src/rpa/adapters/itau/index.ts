@@ -9,7 +9,7 @@ export class ItauAdapter implements BankAdapter {
     async login(page: Page, credentials: Credential): Promise<boolean> {
         console.log(`[ItauAdapter] Logging in as ${credentials.login}...`);
         try {
-            await page.goto(this.baseUrl, { waitUntil: 'networkidle' });
+            await page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
             const frameElement = await page.waitForSelector('iframe[src*="accounts-vehicle.itau.com.br"]', { timeout: 30000 });
             const frame = await frameElement.contentFrame();
             if (!frame) return false;
@@ -17,7 +17,7 @@ export class ItauAdapter implements BankAdapter {
             await frame.fill('#username', credentials.login);
             await frame.fill('#password', credentials.password || '');
             await frame.click('#kc-login');
-            await page.waitForLoadState('networkidle');
+            await page.waitForLoadState('domcontentloaded');
 
             // Verifica credenciais inválidas antes de seguir
             try {

@@ -89,7 +89,7 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
         options: options
     };
 
-    // Launch ONE browser, then run RPA banks in BATCHES of 2
+    // Launch ONE browser, then run all RPA banks in PARALLEL contexts
     let browser;
     let rpaResults: any[] = [];
 
@@ -108,10 +108,10 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
         });
 
         try {
-            // Helper: run a single bank simulation
-            const runBankSimulation = async (bank: string) => {
+            // Create parallel promises for each RPA bank
+            const rpaPromises = rpaBanks.map(async (bank) => {
                 const internalBankId = BANK_ID_MAP[bank];
-                console.log(`[Orchestrator] 🚀 Launching simulation for ${internalBankId} (${bank})`);
+                console.log(`[Orchestrator] 🚀 Launching parallel simulation for ${internalBankId} (${bank})`);
 
                 const adapter = createAdapter(internalBankId);
                 if (!adapter) {
@@ -142,12 +142,16 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                 });
                 const page = await context.newPage();
 
+                // Set generous timeouts for VPS parallel execution
+                page.setDefaultTimeout(60000);
+                page.setDefaultNavigationTimeout(90000);
+
                 try {
                     console.log(`[Orchestrator] 🔑 Attempting login for ${internalBankId}...`);
                     const loggedIn = await adapter.login(page, credentials);
                     if (!loggedIn) {
                         const currentUrl = page.url();
-                        console.error(`[Orchestrator] ❌ Login failed for ${internalBankId}. Current URL: ${currentUrl}`);
+                        console.error(`[Orchestrator] ❌ Login failed for ${internalBankId}. URL: ${currentUrl}`);
                         return { bankId: bank, status: 'LOGIN_FAILED', reason: 'Falha geral ao conectar no sistema do banco.' };
                     }
 
@@ -196,17 +200,12 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                 } finally {
                     await context.close();
                 }
-            };
+            });
 
-            // Run in BATCHES of 2 to avoid memory overload on VPS
-            const BATCH_SIZE = 2;
-            for (let i = 0; i < rpaBanks.length; i += BATCH_SIZE) {
-                const batch = rpaBanks.slice(i, i + BATCH_SIZE);
-                console.log(`[Orchestrator] 📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.join(', ')}`);
-                const batchResults = await Promise.all(batch.map(bank => runBankSimulation(bank)));
-                rpaResults.push(...batchResults);
-            }
-            console.log(`[Orchestrator] ✅ All ${rpaBanks.length} simulations completed!`);
+            // Run ALL RPA simulations in parallel!
+            console.log(`[Orchestrator] ⚡ Running ${rpaBanks.length} RPA simulations in parallel...`);
+            rpaResults = await Promise.all(rpaPromises);
+            console.log(`[Orchestrator] ✅ All ${rpaBanks.length} parallel simulations completed!`);
 
         } catch (error) {
             console.error('[Orchestrator] Global error:', error);
