@@ -85,7 +85,7 @@ export class SafraAdapter implements BankAdapter {
 
             // Wait for redirect away from /login
             try {
-                await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 45000 });
+                await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 90000 });
                 console.log(`[SafraAdapter] ✅ Login OK → ${page.url()}`);
 
                 // CRUCIAL: Wait for the SPA to fully initialize its local tokens before continuing

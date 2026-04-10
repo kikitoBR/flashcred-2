@@ -10,10 +10,10 @@ export class ItauAdapter implements BankAdapter {
         console.log(`[ItauAdapter] Logging in as ${credentials.login}...`);
         try {
             await page.goto(this.baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-            const frameElement = await page.waitForSelector('iframe[src*="accounts-vehicle.itau.com.br"]', { timeout: 30000 });
+            const frameElement = await page.waitForSelector('iframe[src*="accounts-vehicle.itau.com.br"]', { timeout: 60000 });
             const frame = await frameElement.contentFrame();
             if (!frame) return false;
-            await frame.waitForSelector('#username', { timeout: 15000 });
+            await frame.waitForSelector('#username', { timeout: 60000 });
             await frame.fill('#username', credentials.login);
             await frame.fill('#password', credentials.password || '');
             await frame.click('#kc-login');

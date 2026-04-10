@@ -137,7 +137,7 @@ export class PanAdapter implements BankAdapter {
             // Step 3: Fill plate
             console.log('[PanAdapter] Step 3: Filling plate...');
             const plateField = page.locator('#combo__input[aria-controls="listbox-plate"], input[formcontrolname="licensePlate"]');
-            await plateField.first().waitFor({ state: 'visible', timeout: 15000 });
+            await plateField.first().waitFor({ state: 'visible', timeout: 60000 });
             await page.waitForTimeout(1000); // Extra wait for Angular to enable the field
             await plateField.first().click({ force: true });
             await plateField.fill('');

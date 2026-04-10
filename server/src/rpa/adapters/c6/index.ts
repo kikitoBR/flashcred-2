@@ -29,7 +29,7 @@ export class C6Adapter implements BankAdapter {
 
             const usernameField = page.locator('#username');
             const passwordField = page.locator('#password');
-            await usernameField.waitFor({ state: 'visible', timeout: 15000 });
+            await usernameField.waitFor({ state: 'visible', timeout: 60000 });
 
             await usernameField.fill('');
             await page.keyboard.type(credentials.login, { delay: 30 });
