@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'flashcred-server',
-      script: 'dist/index.js',
+      script: 'dist/src/index.js',
       cwd: '/var/www/flashcred/server',
       instances: 1,
       exec_mode: 'fork',
