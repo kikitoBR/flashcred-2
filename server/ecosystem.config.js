@@ -2,21 +2,23 @@ module.exports = {
   apps: [
     {
       name: 'flashcred-server',
-      script: 'xvfb-run',
-      args: '--auto-servernum --server-args="-screen 0 1366x768x24" node dist/index.js',
-      cwd: './',
+      script: 'dist/index.js',
+      cwd: '/var/www/flashcred/server',
       instances: 1,
       exec_mode: 'fork',
       env: {
         NODE_ENV: 'production',
         PORT: 3005,
-        RPA_HEADLESS: 'false'
+        RPA_HEADLESS: 'false',
+        DISPLAY: ':99'
       },
-      max_memory_restart: '1.2G',
+      max_memory_restart: '1200M',
       error_file: 'logs/err.log',
       out_file: 'logs/out.log',
-      min_uptime: '15s',
-      restart_delay: 5000
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      min_uptime: '10s',
+      max_restarts: 10,
+      restart_delay: 3000
     }
   ]
 };
