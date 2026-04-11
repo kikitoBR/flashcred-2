@@ -52,7 +52,7 @@ function createAdapter(bankId: string): BankAdapter | null {
 }
 
 export const runSimulations = async (client: any, vehicle: any, banks: string[], options?: any) => {
-    console.log(`[Orchestrator] Starting PARALLEL simulations for banks: ${banks.join(', ')}`);
+    console.log(`[Orchestrator] Starting simulations for banks: ${banks.join(', ')}`);
 
     // Separate RPA banks from mock banks
     const rpaBanks = banks.filter(b => RPA_BANK_IDS.has(b));
@@ -74,92 +74,7 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
             birthDate: client.birthDate || '01/01/1980',
             phone: client.phone,
             email: client.email,
-            zipCode: client.address?.zipCode || client.zipCode || client.cep, // Map ZIP code from DB/Frontend
-        },
-        vehicle: {
-            plate: vehicle.plate,
-            brand: vehicle.brand,
-            model: vehicle.model,
-            year: vehicle.year,
-            price: vehicle.price,
-            uf: vehicle.uf || 'SP',
-import { chromium } from 'playwright';
-import { Client, Vehicle, SimulationResult } from '../types';
-import { ItauAdapter } from './adapters/itau';
-import { OmniAdapter } from './adapters/omni';
-import { SafraAdapter } from './adapters/safra';
-import { PanAdapter } from './adapters/pan';
-import { C6Adapter } from './adapters/c6';
-import { BradescoAdapter } from './adapters/bradesco';
-import { Credential, SimulationInput, BankAdapter } from './types';
-import { credentialService } from './credential-service';
-import * as fs from 'fs';
-import * as path from 'path';
-
-// Cookie storage paths
-const COOKIES_DIR = path.join(__dirname, '../../cookies');
-
-// Ensure cookies directory exists
-if (!fs.existsSync(COOKIES_DIR)) {
-    fs.mkdirSync(COOKIES_DIR, { recursive: true });
-}
-
-// Bank ID mapping (numeric IDs from frontend → internal adapter IDs)
-const BANK_ID_MAP: Record<string, string> = {
-    '1': 'itau',
-    '2': 'bradesco',
-    '4': 'bv',
-    '5': 'pan',
-    '6': 'c6',
-    '7': 'safra',
-    '9': 'omni',
-    'itau': 'itau',
-    'bradesco': 'bradesco',
-    'omni': 'omni',
-    'safra': 'safra',
-    'pan': 'pan',
-};
-
-// RPA-supported bank IDs
-const RPA_BANK_IDS = new Set(Object.keys(BANK_ID_MAP));
-
-// Adapter factory
-function createAdapter(bankId: string): BankAdapter | null {
-    switch (bankId) {
-        case 'itau': return new ItauAdapter();
-        case 'omni': return new OmniAdapter();
-        case 'safra': return new SafraAdapter();
-        case 'pan': return new PanAdapter();
-        case 'c6': return new C6Adapter();
-        case 'bradesco': return new BradescoAdapter();
-        default: return null;
-    }
-}
-
-export const runSimulations = async (client: any, vehicle: any, banks: string[], options?: any) => {
-    console.log(`[Orchestrator] Starting PARALLEL simulations for banks: ${banks.join(', ')}`);
-
-    // Separate RPA banks from mock banks
-    const rpaBanks = banks.filter(b => RPA_BANK_IDS.has(b));
-    const mockBanks = banks.filter(b => !RPA_BANK_IDS.has(b));
-
-    // Mock results (instant)
-    const mockResults = mockBanks.map(bank => ({
-        bankId: bank,
-        status: 'ANALYSIS',
-        interestRate: 1.99,
-        installments: [{ months: 48, value: 1500 }]
-    }));
-
-    // Build shared simulation input
-    const input: SimulationInput = {
-        client: {
-            cpf: client.cpf,
-            name: client.name,
-            birthDate: client.birthDate || '01/01/1980',
-            phone: client.phone,
-            email: client.email,
-            zipCode: client.address?.zipCode || client.zipCode || client.cep, // Map ZIP code from DB/Frontend
+            zipCode: client.address?.zipCode || client.zipCode || client.cep,
         },
         vehicle: {
             plate: vehicle.plate,
