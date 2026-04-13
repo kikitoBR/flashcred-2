@@ -103,6 +103,7 @@ app.get('/api/bv/manual-login', async (req, res) => {
         // launchPersistentContext creates a real Chrome profile, not detected as automation
         const context = await chromium.launchPersistentContext(BV_PROFILE_DIR, {
             headless: false,
+            channel: 'chrome',
             args: [
                 '--start-maximized',
                 '--disable-blink-features=AutomationControlled',

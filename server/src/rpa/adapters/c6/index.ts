@@ -5,6 +5,7 @@ export class C6Adapter implements BankAdapter {
     id = 'c6';
     name = 'C6 Bank';
     private baseUrl = 'https://c6auto.com.br/originacaolojista/login';
+    private passwordExpirationWarning: string | undefined;
 
     // =============================
     // LOGIN
@@ -29,7 +30,7 @@ export class C6Adapter implements BankAdapter {
 
             const usernameField = page.locator('#username');
             const passwordField = page.locator('#password');
-            await usernameField.waitFor({ state: 'visible', timeout: 60000 });
+            await usernameField.waitFor({ state: 'visible', timeout: 15000 });
 
             await usernameField.fill('');
             await page.keyboard.type(credentials.login, { delay: 30 });
@@ -67,6 +68,24 @@ export class C6Adapter implements BankAdapter {
                     await page.waitForTimeout(1000);
                 } catch { }
 
+                // Handle Password Expiration Warning
+                try {
+                    const warningElement = page.locator('app-feedback .title:has-text("Sua senha expira em")').first();
+                    if (await warningElement.isVisible({ timeout: 5000 })) {
+                        const warningText = await warningElement.innerText();
+                        console.log(`[C6Adapter] ⚠️ Password expiration warning detected: ${warningText}`);
+                        this.passwordExpirationWarning = warningText.trim();
+
+                        // Click "Trocar senha depois"
+                        const skipBtn = page.locator('app-feedback button:has-text("Trocar senha depois")').first();
+                        if (await skipBtn.isVisible({ timeout: 3000 })) {
+                            await skipBtn.click();
+                            console.log('[C6Adapter] "Trocar senha depois" clicked.');
+                            await page.waitForTimeout(1000);
+                        }
+                    }
+                } catch (e) { }
+
                 return true;
             } catch {
                 if (!page.url().includes('login')) return true;
@@ -87,7 +106,12 @@ export class C6Adapter implements BankAdapter {
     // =============================
     async simulate(page: Page, input: SimulationInput): Promise<SimulationResult> {
         console.log(`[C6Adapter] Simulation for CPF: ${input.client.cpf}`);
-        const result: SimulationResult = { bankId: this.id, status: 'ERROR', offers: [] };
+        const result: SimulationResult = { 
+            bankId: this.id, 
+            status: 'ERROR', 
+            offers: [],
+            warning: this.passwordExpirationWarning
+        };
 
         try {
             // Check promo banner again just in case

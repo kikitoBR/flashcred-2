@@ -16,7 +16,7 @@ export const Login = () => {
 
     try {
       const host = window.location.hostname;
-      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('187.77.255.193');
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -26,7 +26,7 @@ export const Login = () => {
         headers['x-tenant-id'] = 'demo';
       }
 
-      const apiUrl = isLocalhost ? 'http://localhost:3001/api/auth/login' : '/api/auth/login';
+      const apiUrl = isLocalhost && window.location.port === '3000' ? 'http://localhost:3001/api/auth/login' : '/api/auth/login';
 
       const res = await fetch(apiUrl, {
         method: 'POST',

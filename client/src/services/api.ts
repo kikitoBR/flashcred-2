@@ -1,13 +1,15 @@
 
 const getApiUrl = () => {
-    const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-    return isLocalhost ? 'http://localhost:3001/api' : '/api';
+    const host = window.location.hostname;
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('187.77.255.193');
+    return isLocalhost && window.location.port === '3000' ? 'http://localhost:3001/api' : '/api';
 };
 
 const API_URL = getApiUrl();
 
 const getHeaders = () => {
-    const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+    const host = window.location.hostname;
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('187.77.255.193');
     const token = localStorage.getItem('token');
     const headers: any = {
         'Content-Type': 'application/json'
