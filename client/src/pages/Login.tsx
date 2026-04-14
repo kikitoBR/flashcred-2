@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +9,7 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,17 +52,15 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="bg-slate-900 p-8 text-center border-b border-slate-800 relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-amber-500/20 mix-blend-overlay"></div>
-          <div className="w-16 h-16 bg-gradient-to-tr from-emerald-500 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4 relative z-10 shadow-lg shadow-emerald-500/30">
-            <Zap className="text-white" size={32} />
+      <div className="max-w-md w-full bg-slate-900 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-slate-800">
+        <div className="p-8 text-center border-b border-slate-800 relative rounded-t-2xl">
+          <div className="w-56 h-auto mx-auto mb-2 relative z-10">
+            <img src="/logo-bg.png" alt="FlashCred Logo" className="w-full h-full object-contain drop-shadow-md" />
           </div>
-          <h1 className="text-3xl font-bold text-white relative z-10">FlashCred</h1>
           <p className="text-slate-400 mt-2 relative z-10">Faça login para continuar</p>
         </div>
 
-        <div className="p-8">
+        <div className="p-8 bg-white">
           {error && (
             <div className="mb-6 bg-red-50 text-red-600 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
               <AlertCircle size={20} />
@@ -82,7 +82,16 @@ export const Login = () => {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Senha</label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-slate-700">Senha</label>
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold"
+                >
+                  Esqueceu a senha?
+                </button>
+              </div>
               <input
                 type="password"
                 required

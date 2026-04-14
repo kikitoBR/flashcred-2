@@ -51,7 +51,7 @@ function createAdapter(bankId: string): BankAdapter | null {
     }
 }
 
-export const runSimulations = async (client: any, vehicle: any, banks: string[], options?: any) => {
+export const runSimulations = async (client: any, vehicle: any, banks: string[], options?: any, signal?: AbortSignal) => {
     console.log(`[Orchestrator] Starting PARALLEL simulations for banks: ${banks.join(', ')}`);
 
     // Separate RPA banks from mock banks
@@ -90,7 +90,7 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
     };
 
     // Launch ONE browser, then run all RPA banks in PARALLEL contexts
-    let browser;
+    let browser: any;
     let rpaResults: any[] = [];
 
     if (rpaBanks.length > 0) {
@@ -108,6 +108,18 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                 '--mute-audio'
             ]
         });
+
+        // Add the abort listener to forcefully terminate the browser
+        const abortHandler = () => {
+            console.log('[Orchestrator] Simulation cancelled by client! Forcibly closing browser...');
+            if (browser) {
+                browser.close().catch((err: any) => console.error('[Orchestrator] Error during forced abort shutdown:', err.message));
+            }
+        };
+
+        if (signal) {
+            signal.addEventListener('abort', abortHandler);
+        }
 
         try {
             // Create parallel promises for each RPA bank
@@ -153,12 +165,19 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
                     const url = request.url().toLowerCase();
                     const resourceType = request.resourceType();
 
-                    // 1. ITAÚ SPECIAL CASE: Whitelist its own domains to prevent breakage
+                    // 1. BANK SPECIFIC DOMAIN WHITELIST
+                    // Ensure critical domains for each bank are not blocked by generic rules
                     if (internalBankId === 'itau') {
                         const itauDomains = ['itau.com.br', 'credlineitau.com.br'];
                         if (itauDomains.some(domain => url.includes(domain))) {
                             return route.continue();
                         }
+                    }
+
+                    // For Bradesco, their anti-bot (Akamai, Dynatrace, reCAPTCHA) is extremely strict
+                    // and will block the login if it detects that any resource (even images or analytics) was blocked.
+                    if (internalBankId === 'bradesco') {
+                        return route.continue();
                     }
 
                     // 2. GLOBAL TRACKER BLOCKING (Regardless of bank/domain)
@@ -250,7 +269,14 @@ export const runSimulations = async (client: any, vehicle: any, banks: string[],
         } catch (error) {
             console.error('[Orchestrator] Global error:', error);
         } finally {
-            await browser.close();
+            if (signal) {
+                // If the signal was already aborted, the listener was called, we just remove it here to avoid memory leaks.
+                // Cast to any because TS DOM typings aren't strictly resolving removeEventListener signature here
+                (signal as any).removeEventListener('abort', abortHandler);
+            }
+            if (browser) {
+                await browser.close().catch(() => {});
+            }
         }
     }
 

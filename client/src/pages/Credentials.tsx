@@ -163,12 +163,15 @@ export const Credentials = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {BANKS.map((bank) => {
-                    const credential = bankCredentials.find(c => c.bankId === bank.id) || { bankId: bank.id, login: '', lastUpdated: '-' };
+                    const credential = bankCredentials.find(c => c.bankId === bank.id);
+                    if (credential?.status === 'INVISIBLE') return null;
+                    
+                    const finalCredential = credential || { bankId: bank.id, login: '', lastUpdated: '-' };
                     return (
                         <CredentialCard
                             key={bank.id}
                             bank={bank}
-                            credential={credential as BankCredential}
+                            credential={finalCredential as BankCredential}
                             onSaveSuccess={refreshData}
                         />
                     );

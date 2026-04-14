@@ -222,7 +222,7 @@ export const SalesHistory = () => {
                                     <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white font-bold text-xs">
+                                                <div className="w-9 h-9 flex-shrink-0 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white font-bold text-xs">
                                                     {sale.client_name?.charAt(0) || '?'}
                                                 </div>
                                                 <div>
@@ -250,7 +250,7 @@ export const SalesHistory = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 font-bold text-slate-700">
+                                            <span className="inline-flex items-center justify-center w-10 h-10 flex-shrink-0 rounded-full bg-slate-100 font-bold text-slate-700">
                                                 {sale.installments}x
                                             </span>
                                         </td>

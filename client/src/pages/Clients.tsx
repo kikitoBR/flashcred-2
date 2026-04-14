@@ -256,7 +256,7 @@ export const Clients = () => {
                                     <tr key={client.id} className="hover:bg-emerald-50/50 transition-all duration-200 group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                                <div className="w-11 h-11 flex-shrink-0 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
                                                     {client.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div>

@@ -13,9 +13,25 @@ export class BradescoAdapter implements BankAdapter {
     async login(page: Page, credentials: Credential): Promise<boolean> {
         console.log(`[BradescoAdapter] Logging in as ${credentials.login}...`);
         try {
-            // Bypass webdriver footprint to prevent bot detection
+            // Bypass webdriver footprint and emulate human environment
             await page.addInitScript(() => {
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                
+                // Emulate Chrome runtime
+                (window as any).chrome = {
+                    runtime: {}
+                };
+
+                // Add fake plugins to seem like a real browser
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3]
+                });
+
+                // Set standard languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['pt-BR', 'pt', 'en-US', 'en']
+                });
+
                 // Automatically handle geolocation permission inside the page context via mock if necessary
                 const originalQuery = window.navigator.permissions.query;
                 window.navigator.permissions.query = (parameters: any) => (
@@ -46,15 +62,15 @@ export class BradescoAdapter implements BankAdapter {
                 await usernameField.waitFor({ state: 'visible', timeout: 15000 });
                 await usernameField.click();
                 await usernameField.fill('');
-                await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 50 });
+                await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 150 });
 
                 // Fill password
                 const passwordField = page.locator('input[formcontrolname="password"], input[type="password"]').first();
                 await passwordField.waitFor({ state: 'visible', timeout: 5000 });
                 await passwordField.click();
                 await passwordField.fill('');
-                await page.keyboard.type(credentials.password || '', { delay: 50 });
-                await page.waitForTimeout(500);
+                await page.keyboard.type(credentials.password || '', { delay: 180 });
+                await page.waitForTimeout(1000);
 
                 // Click Entrar
                 const loginBtn = page.locator('button[type="submit"]:has-text("Entrar")').first();

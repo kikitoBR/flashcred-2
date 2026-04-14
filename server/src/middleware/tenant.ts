@@ -14,12 +14,24 @@ declare global {
 export const tenantMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const host = req.headers.host || '';
-        let subdomain = host.split(':')[0].split('.')[0];
+        const hostOnly = host.split(':')[0];
+        const parts = hostOnly.split('.');
+        
+        let subdomain = 'demo';
 
-        // If host is an IP address or localhost without subdomain, default to 'demo'
-        const isIP = /^\d{1,3}(\.\d{1,3}){3}/.test(host.split(':')[0]);
-        if (isIP || host.includes('localhost') || !host.split(':')[0].includes('.')) {
+        // Direct domain or IP/localhost handling
+        const isIP = /^\d{1,3}(\.\d{1,3}){3}/.test(hostOnly);
+        const isLocal = hostOnly === 'localhost' || hostOnly === '127.0.0.1';
+        const isMainDomain = hostOnly === 'flashcred.net';
+
+        if (!isIP && !isLocal && !isMainDomain && parts.length >= 3) {
+            // Extract tenant from subdomain.flashcred.net (or similar)
+            subdomain = parts[0];
+        } else if (isIP || isLocal || isMainDomain) {
             subdomain = 'demo';
+        } else {
+            // Generic fallback for any other single-word host
+            subdomain = parts[0];
         }
 
         // For local development or header override
@@ -43,15 +55,6 @@ export const tenantMiddleware = async (req: Request, res: Response, next: NextFu
         const rows = await query('SELECT * FROM tenants WHERE subdomain = ?', [subdomain]) as any[];
 
         if (!rows || rows.length === 0) {
-            // Fallback for localhost if the subdomain check failed but we are on localhost (e.g. host is localhost:3000)
-            if (host.includes('localhost')) {
-                const demoRows = await query("SELECT * FROM tenants WHERE subdomain = 'demo'") as any[];
-                if (demoRows && demoRows.length > 0) {
-                    req.tenant = demoRows[0];
-                    console.log(`[Tenant Lookup] Dev mode (fallback): defaulted to demo tenant.`);
-                    return next();
-                }
-            }
             return res.status(404).json({ error: `Tenant not found for subdomain: ${subdomain}` });
         }
 

@@ -163,7 +163,7 @@ export const Dashboard = () => {
                             stats.recentSimulations.map((sim) => (
                                 <div key={sim.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-100">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${sim.status === 'APPROVED' ? 'bg-emerald-500' :
+                                        <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold text-white ${sim.status === 'APPROVED' ? 'bg-emerald-500' :
                                             sim.status === 'REJECTED' ? 'bg-red-500' : 'bg-amber-500'
                                             }`}>
                                             {sim.client_name?.charAt(0) || '?'}
@@ -176,10 +176,12 @@ export const Dashboard = () => {
                                     <div className="text-right">
                                         <Badge variant={
                                             sim.status === 'APPROVED' ? 'success' :
-                                                sim.status === 'REJECTED' ? 'danger' : 'warning'
+                                                sim.status === 'REJECTED' ? 'danger' :
+                                                    sim.status === 'ERROR' ? 'default' : 'warning'
                                         }>
                                             {sim.status === 'APPROVED' ? 'Aprovado' :
-                                                sim.status === 'REJECTED' ? 'Reprovado' : 'Pendente'}
+                                                sim.status === 'REJECTED' ? 'Reprovado' :
+                                                    sim.status === 'ERROR' ? 'Erro/Cancelado' : 'Pendente'}
                                         </Badge>
                                     </div>
                                 </div>

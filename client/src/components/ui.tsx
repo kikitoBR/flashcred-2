@@ -13,17 +13,22 @@ export const Badge = ({ children, variant }: { children: React.ReactNode, varian
     return <span className={`px-2 py-1 rounded text-xs font-bold ${styles[variant] || styles.neutral}`}>{children}</span>;
 };
 
-export const Button = ({ children, onClick, variant = 'primary', icon, className = '', type = 'button' }: any) => {
-    const baseClass = "px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors";
+export const Button = ({ children, onClick, variant = 'primary', icon, className = '', type = 'button', disabled = false }: any) => {
+    const baseClass = "px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.98]";
     const variants: any = {
-        primary: "bg-emerald-600 text-white hover:bg-emerald-700",
-        ghost: "bg-transparent text-slate-600 hover:bg-slate-100",
-        outline: "border border-slate-300 text-slate-700 hover:bg-slate-50",
-        success: "bg-green-600 text-white hover:bg-green-700",
-        neutral: "bg-gray-600 text-white hover:bg-gray-700"
+        primary: "bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100",
+        ghost: "bg-transparent text-slate-600 hover:bg-slate-100 disabled:text-slate-300 disabled:hover:bg-transparent disabled:cursor-not-allowed",
+        outline: "border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:border-slate-200 disabled:text-slate-300 disabled:hover:bg-transparent disabled:cursor-not-allowed",
+        success: "bg-green-600 text-white hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed",
+        neutral: "bg-gray-600 text-white hover:bg-gray-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
     };
     return (
-        <button type={type} onClick={onClick} className={`${baseClass} ${variants[variant]} ${className}`}>
+        <button 
+            type={type} 
+            onClick={onClick} 
+            disabled={disabled} 
+            className={`${baseClass} ${variants[variant]} ${className}`}
+        >
             {icon} {children}
         </button>
     );

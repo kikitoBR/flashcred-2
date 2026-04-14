@@ -226,13 +226,34 @@ router.get('/stats', async (req, res: any) => {
             reprovados: stats.reprovados
         }));
 
+        // Weekly Performance (last 7 days sims)
+        const weeklyData = await query(
+            `SELECT DAYOFWEEK(created_at) as day_of_week, COUNT(*) as count 
+             FROM simulations 
+             WHERE tenant_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)${userIdFilter}
+             GROUP BY day_of_week`,
+            queryParams
+        );
+
+        // Recent Simulations
+        const recentSimulations = await query(
+            `SELECT id, client_name, vehicle_description, bank_name, status, created_at 
+             FROM simulations 
+             WHERE tenant_id = ?${userIdFilter}
+             ORDER BY created_at DESC 
+             LIMIT 5`,
+            queryParams
+        );
+
         res.json({
             totalSimulations: totalSims?.count || 0,
             todaySimulations: todaySims?.count || 0,
             todayApprovals: todayApprovals?.count || 0,
             totalFinanced: totalFinanced?.total || 0,
             monthlyPerformance: monthlyData,
-            bankPerformance: bankData
+            bankPerformance: bankData,
+            weeklyData,
+            recentSimulations
         });
     } catch (error) {
         console.error('Error fetching sales stats:', error);

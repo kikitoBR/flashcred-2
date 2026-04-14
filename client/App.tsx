@@ -28,6 +28,9 @@ import { Vehicles } from './src/pages/Vehicles';
 import { NewSimulation } from './src/pages/NewSimulation';
 import { SalesHistory } from './src/pages/SalesHistory';
 import { Users as UsersPage } from './src/pages/Users';
+import { ForgotPassword } from './src/pages/ForgotPassword';
+import { ResetPassword } from './src/pages/ResetPassword';
+import { Register } from './src/pages/Register';
 
 // --- Layout & Main App ---
 const Layout = () => {
@@ -57,8 +60,23 @@ const Layout = () => {
     return <div className="min-h-screen flex items-center justify-center bg-slate-900"><div className="animate-spin w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent"></div></div>;
   }
 
-  if (!user) {
+  // Se não estiver logado e não for uma rota pública, redireciona para login
+  const publicRoutes = ['/forgot-password', '/reset-password', '/register'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
+  if (!user && !isPublicRoute) {
     return <Login />;
+  }
+
+  // Se estiver em uma rota pública, renderiza apenas o componente da rota (sem o layout lateral)
+  if (isPublicRoute) {
+    return (
+      <Routes>
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    );
   }
 
   const handleNavigation = (path: string) => {
@@ -70,12 +88,8 @@ const Layout = () => {
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Desktop Sidebar */}
       <aside className="w-64 bg-slate-900 text-white flex-col hidden md:flex shadow-2xl print:hidden">
-        <div className="p-6 flex items-center gap-3">
-          <img src="/logo.jpeg" alt="FlashCred" className="w-10 h-10 rounded-lg object-cover" />
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Flash<span className="text-[#CD7F32]">Cred</span></h1>
-            <p className="text-xs text-slate-400">Automação de Crédito</p>
-          </div>
+        <div className="p-6 flex justify-center border-b border-slate-800/50">
+          <img src="/logo-bg.png" alt="FlashCred Logo" className="w-40 h-auto object-contain drop-shadow-lg" />
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-2">
@@ -119,11 +133,8 @@ const Layout = () => {
       {/* Mobile Sidebar Drawer */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.jpeg" alt="FlashCred" className="w-9 h-9 rounded-lg object-cover" />
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Flash<span className="text-[#CD7F32]">Cred</span></h1>
-            </div>
+          <div className="flex justify-center flex-1">
+            <img src="/logo-bg.png" alt="FlashCred Logo" className="w-32 h-auto object-contain" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 hover:text-white">
             <X size={24} />
@@ -162,11 +173,8 @@ const Layout = () => {
       {/* Mobile Header & Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="md:hidden bg-white border-b border-slate-200 p-4 flex items-center justify-between print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="bg-emerald-500 p-1.5 rounded">
-              <Zap className="text-white" size={20} />
-            </div>
-            <span className="font-bold text-slate-900">FlashCred</span>
+          <div className="flex items-center">
+            <img src="/logo-bg.png" alt="FlashCred Logo" className="w-24 h-auto object-contain" />
           </div>
           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-slate-600">
             <Menu size={24} />
@@ -185,6 +193,9 @@ const Layout = () => {
               <Route path="/statistics" element={<Statistics />} />
               <Route path="/credentials" element={<Credentials />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/sign-in" element={<Navigate to="/" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

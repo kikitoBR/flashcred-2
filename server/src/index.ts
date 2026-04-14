@@ -5,6 +5,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { tenantMiddleware } from './middleware/tenant';
 import { runSimulations } from './rpa/orchestrator';
+import { securitySentinel } from './middleware/security';
+import { initMonitoring, checkSystemHealth } from './services/monitorService';
 
 dotenv.config();
 
@@ -15,6 +17,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Monitoramento de Segurança Global
+app.use(securitySentinel);
+
 import clientRoutes from './routes/clients';
 import vehicleRoutes from './routes/vehicles';
 import salesRoutes from './routes/sales';
@@ -23,12 +28,14 @@ import credentialsRoutes from './routes/credentials';
 import fipeRoutes from './routes/fipe';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
+import invitationRoutes from './routes/invitations';
 
 // Apply tenant middleware to API routes
 app.use('/api', tenantMiddleware);
 
 // Register Auth logic
 app.use('/api/auth', authRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 import { authMiddleware } from './middleware/auth';
 
@@ -45,7 +52,26 @@ app.get('/', (req, res) => {
     res.send('FlashCred Server Running (Multi-Tenant)');
 });
 
+const activeSimulations = new Map<string, AbortController>();
+
 app.post('/api/simulate', authMiddleware, async (req, res) => {
+    const userId = req.user?.id || 'unknown';
+    
+    // Cancel any previous stuck simulation for this user
+    if (activeSimulations.has(userId)) {
+        activeSimulations.get(userId)?.abort();
+    }
+
+    const ac = new AbortController();
+    activeSimulations.set(userId, ac);
+    
+    req.on('close', () => {
+        if (!res.writableEnded) {
+            console.log(`[API] Tenant: ${req.tenant?.id || 'Unknown'} - Client disconnected. Aborting backend simulation process.`);
+            ac.abort();
+        }
+    });
+
     try {
         const { client, vehicle, banks, options } = req.body;
 
@@ -62,14 +88,29 @@ app.post('/api/simulate', authMiddleware, async (req, res) => {
         const simulationOptions = options || {};
         simulationOptions.userId = req.user?.id;
 
-        const results = await runSimulations(client, vehicle, selectedBanks, simulationOptions);
+        const results = await runSimulations(client, vehicle, selectedBanks, simulationOptions, ac.signal);
 
+        activeSimulations.delete(userId);
         res.json(results);
 
     } catch (error: any) {
+        activeSimulations.delete(userId);
         console.error('Simulation endpoint error:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+app.post('/api/simulate/cancel', authMiddleware, (req, res) => {
+    const userId = req.user?.id || 'unknown';
+    console.log(`[API] Explicit cancel request received for user: ${userId}`);
+    
+    if (activeSimulations.has(userId)) {
+        activeSimulations.get(userId)?.abort();
+        activeSimulations.delete(userId);
+        return res.json({ success: true, message: 'Simulation aborted successfully on server' });
+    }
+    
+    res.json({ success: false, message: 'No active simulation found' });
 });
 
 // Manual login endpoint for BV - saves cookies for future automated use
@@ -160,8 +201,9 @@ app.get('/api/bv/manual-login', async (req, res) => {
     }
 });
 
-app.get('/api/health', (req, res) => {
-    res.send('FlashCred Server Running (Multi-Tenant)');
+app.get('/api/health', async (req, res) => {
+    const health = await checkSystemHealth();
+    res.json(health);
 });
 
 // Serve Static Files
@@ -175,4 +217,6 @@ app.get('*', (req, res) => {
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
+    // Iniciar agendamento de relatórios e verificações
+    initMonitoring();
 });

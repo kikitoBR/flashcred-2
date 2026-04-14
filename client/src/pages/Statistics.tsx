@@ -687,7 +687,7 @@ export const Statistics = () => {
                     {selectedOppClient && (
                         <div className="space-y-6">
                             <div className="flex items-center gap-4">
-                                <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                                <div className="w-16 h-16 flex-shrink-0 rounded-full bg-slate-100 flex items-center justify-center">
                                     <User size={32} className="text-slate-500" />
                                 </div>
                                 <div>
@@ -853,7 +853,7 @@ export const Statistics = () => {
                                 <div key={idx} className={`p-4 rounded-xl border border-slate-200 border-l-4 ${offer.status === 'APPROVED' ? 'border-l-emerald-500 bg-emerald-50/10' : 'border-l-red-500 bg-red-50/10'}`}>
                                     <div className="flex justify-between items-center mb-3">
                                         <div className="flex items-center gap-2">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${bank?.color || 'bg-slate-400'}`}>
+                                            <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs ${bank?.color || 'bg-slate-400'}`}>
                                                 {bank?.logoInitial || '?'}
                                             </div>
                                             <h4 className="font-bold text-slate-900">{bank?.name || offer.bankName || offer.bankId}</h4>
@@ -959,7 +959,7 @@ export const Statistics = () => {
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${bank?.color || 'bg-slate-400'}`}>
+                                                    <div className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center text-white font-bold text-xs ${bank?.color || 'bg-slate-400'}`}>
                                                         {bank?.logoInitial || '?'}
                                                     </div>
                                                     <span className="text-sm font-semibold text-slate-800">{bank?.name || offer.bankId}</span>

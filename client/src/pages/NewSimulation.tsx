@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     CheckSquare, Square, PlayCircle, Zap, Loader2, TrendingUp, AlertCircle, CheckCircle2, PartyPopper, ChevronDown, Unplug, Info, ExternalLink
@@ -26,6 +26,7 @@ const useGlobalState = <T,>(key: string, initialValue: T, globalState: any, setG
 
 export const NewSimulation = () => {
     const { clients, vehicles, updateClientScore, setVehicles, bankCredentials, simulationState, setSimulationState } = useAppContext();
+    const abortControllerRef = useRef<AbortController | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -160,6 +161,8 @@ export const NewSimulation = () => {
 
         setStep(3); // Loading state
 
+        abortControllerRef.current = new AbortController();
+
         // Split banks
         const rpaBankIds = ['6', '1', '2', '4', '5', '7', '9']; // C6 Bank(6), Itau(1), Bradesco(2), BV(4), Pan(5), Safra(7), Omni(9)
         const selectedRpaBanks = selectedBanks.filter(id => rpaBankIds.includes(id));
@@ -182,21 +185,34 @@ export const NewSimulation = () => {
                         itauReturn,
                         panReturn
                     }
-                });
+                }, abortControllerRef.current.signal);
                 // Map RPA results to SimulationOffer schema
                 if (rpaResults && rpaResults.offers) {
                     return rpaResults.offers;
                 }
                 return [];
-            } catch (error) {
+            } catch (error: any) {
+                if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+                    console.log("RPA Simulation cancelled by user.");
+                    return 'CANCELLED';
+                }
                 console.error("RPA Error:", error);
                 return [];
             }
         })();
 
         // Mock Promise (Mock API Delay)
-        const mockPromise = new Promise<SimulationOffer[]>(resolve => {
-            setTimeout(() => {
+        const mockPromise = new Promise<SimulationOffer[] | 'CANCELLED'>(resolve => {
+            let timeoutId: any;
+            const onAbort = () => {
+                clearTimeout(timeoutId);
+                resolve('CANCELLED');
+            };
+            if (abortControllerRef.current) {
+                abortControllerRef.current.signal.addEventListener('abort', onAbort);
+            }
+            timeoutId = setTimeout(() => {
+                if (abortControllerRef.current) abortControllerRef.current.signal.removeEventListener('abort', onAbort);
                 const results: SimulationOffer[] = selectedMockBanks.map(bankId => {
                     // Mock logic same as before
                     const isApproved = Math.random() < (client.score / 1000) + 0.2;
@@ -237,6 +253,10 @@ export const NewSimulation = () => {
 
         // Wait for both
         const [rpaOffers, mockOffers] = await Promise.all([rpaPromise, mockPromise]);
+        if (rpaOffers === 'CANCELLED' || mockOffers === 'CANCELLED') {
+            return; // Exit silently, user went back to previous steps
+        }
+        
         const results = [...(mockOffers as SimulationOffer[]), ...(rpaOffers as SimulationOffer[])];
 
         setSimulationResults(results);
@@ -305,6 +325,16 @@ export const NewSimulation = () => {
         setStep(4); // Show Results
     };
 
+    const cancelSimulation = async () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        try {
+            await rpaService.cancelSimulation();
+        } catch(e) {}
+        setStep(2); // Go back to Selection
+    };
+
     const handleFinalizeSale = (offer: SimulationOffer) => {
         if (!vehicle) return;
         setFinalizedOffer(offer);
@@ -360,7 +390,7 @@ export const NewSimulation = () => {
                         { id: 4, label: 'Ofertas' }
                     ].map((s, idx) => (
                         <div key={s.id} className="flex items-center">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step >= s.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold transition-colors ${step >= s.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
                                 {s.id}
                             </div>
                             <span className={`ml-2 text-sm font-medium ${step >= s.id ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</span>
@@ -390,7 +420,7 @@ export const NewSimulation = () => {
                                 >
                                     {selectedClient ? (
                                         <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                                            <div className="w-7 h-7 flex-shrink-0 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
                                                 {clients.find(c => c.id === selectedClient)?.name?.charAt(0)}
                                             </div>
                                             <span className="text-sm font-medium text-slate-900">{clients.find(c => c.id === selectedClient)?.name}</span>
@@ -426,7 +456,7 @@ export const NewSimulation = () => {
                                                             setIsClientDropdownOpen(false);
                                                         }}
                                                     >
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                        <div className="w-10 h-10 flex-shrink-0 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold shadow-md">
                                                             {c.name?.charAt(0)}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
@@ -773,7 +803,8 @@ export const NewSimulation = () => {
                         </div>
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mt-6">Analisando Perfil...</h2>
-                    <p className="text-slate-500 mt-2 max-w-md">Conectando com as instituições financeiras e buscando as melhores taxas.</p>
+                    <p className="text-slate-500 mt-2 max-w-md mb-8">Conectando com as instituições financeiras e buscando as melhores taxas.</p>
+                    <Button variant="outline" onClick={cancelSimulation} className="text-red-500 border-red-200 hover:bg-red-50 mt-4">Cancelar Simulação</Button>
                 </div>
             )}
 

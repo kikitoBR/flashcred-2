@@ -1,21 +1,26 @@
 
 const getApiUrl = () => {
     const host = window.location.hostname;
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('187.77.255.193');
-    return isLocalhost && window.location.port === '3000' ? 'http://localhost:3001/api' : '/api';
+    const isDevelopment = host.includes('localhost') || host.includes('127.0.0.1');
+    // If running in dev mode (usually Vite on 3000), point to local backend
+    return isDevelopment && window.location.port === '3000' ? 'http://localhost:3001/api' : '/api';
 };
 
 const API_URL = getApiUrl();
 
 const getHeaders = () => {
     const host = window.location.hostname;
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('187.77.255.193');
+    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
     const token = localStorage.getItem('token');
+    
     const headers: any = {
         'Content-Type': 'application/json'
     };
+    
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    if (isLocalhost) headers['x-tenant-id'] = 'demo';
+    
+    // Fallback to 'demo' ONLY when running locally without a subdomain
+    if (isLocal) headers['x-tenant-id'] = 'demo';
     
     return headers;
 };
@@ -133,12 +138,13 @@ export const vehicleService = {
 };
 
 export const rpaService = {
-    simulate: async (data: { client: any; vehicle: any; banks: string[]; options?: any }) => {
+    simulate: async (data: { client: any; vehicle: any; banks: string[]; options?: any }, signal?: AbortSignal) => {
         try {
             const response = await fetch(`${API_URL}/simulate`, {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify(data),
+                signal, // Pass the abort signal here
             });
 
             if (!response.ok) {
@@ -148,6 +154,18 @@ export const rpaService = {
             return await response.json();
         } catch (error) {
             console.error('RPA Service Error:', error);
+            throw error;
+        }
+    },
+    cancelSimulation: async () => {
+        try {
+            const response = await fetch(`${API_URL}/simulate/cancel`, {
+                method: 'POST',
+                headers: getHeaders(),
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('RPA Cancel Error:', error);
             throw error;
         }
     }

@@ -1,6 +1,6 @@
 server {
-    listen 81;
-    server_name 187.77.255.193;
+    listen 80;
+    server_name flashcred.net *.flashcred.net;
 
     # Increase timeouts for RPA simulations (can take several minutes)
     proxy_connect_timeout 600;
