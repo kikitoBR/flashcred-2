@@ -87,6 +87,34 @@ export class OmniAdapter implements BankAdapter {
             await autoCard.click();
             await page.waitForTimeout(1000);
 
+            // ── STEP 2.5: Selecionar Vendedor (Obrigatório em algumas contas) ──
+            console.log('[OmniAdapter] Step 2.5 → Selecionando vendedor...');
+            try {
+                const sellerSelect = page.locator('omni-select[formcontrolname="seller"]').first();
+                if (await sellerSelect.isVisible({ timeout: 5000 })) {
+                    console.log('[OmniAdapter] 👤 Campo de vendedor detectado. Selecionando primeiro da lista...');
+                    await sellerSelect.locator('input.omni-input').click({ force: true });
+                    await page.waitForTimeout(1500);
+
+                    // Selecionar a primeira opção do overlay
+                    const firstOption = page.locator('.cdk-overlay-container omni-select-option, .cdk-overlay-container .omni-select_option, .cdk-overlay-container [role="option"]').first();
+                    if (await firstOption.isVisible({ timeout: 5000 })) {
+                        await firstOption.click({ force: true });
+                        console.log('[OmniAdapter] ✅ Vendedor selecionado com sucesso.');
+                    } else {
+                        console.log('[OmniAdapter] ⚠️ Overlay de vendedor não abriu ou está vazio. Tentando ArrowDown + Enter...');
+                        await page.keyboard.press('ArrowDown');
+                        await page.waitForTimeout(500);
+                        await page.keyboard.press('Enter');
+                    }
+                    await page.waitForTimeout(1000);
+                } else {
+                    console.log('[OmniAdapter] ℹ️ Campo de vendedor não visível ou não solicitado nesta conta.');
+                }
+            } catch (e: any) {
+                console.warn(`[OmniAdapter] ⚠️ Erro ao tentar selecionar vendedor: ${e.message}`);
+            }
+
             // ── STEP 3: Clicar "Continuar" no dialog de produto ──
             console.log('[OmniAdapter] Step 3 → Continuar (produto)...');
             await this.clickOmniButton(page, 'Continuar');
