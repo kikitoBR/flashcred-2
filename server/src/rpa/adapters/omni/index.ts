@@ -103,6 +103,8 @@ export class OmniAdapter implements BankAdapter {
             await page.waitForTimeout(1000);
 
             // Clicar Continuar (CPF)
+            await page.keyboard.press('Tab');
+            await page.waitForTimeout(500);
             await this.clickOmniButton(page, 'Continuar');
             await page.waitForTimeout(2000);
 
@@ -156,6 +158,8 @@ export class OmniAdapter implements BankAdapter {
             await page.waitForTimeout(500);
 
             // Continuar (telefone)
+            await page.keyboard.press('Tab');
+            await page.waitForTimeout(500);
             await this.clickOmniButton(page, 'Continuar');
             await page.waitForTimeout(2000);
 
@@ -200,6 +204,8 @@ export class OmniAdapter implements BankAdapter {
             await page.waitForTimeout(1000);
 
             // Continuar (placa+uf)
+            await page.keyboard.press('Tab');
+            await page.waitForTimeout(500);
             await this.clickOmniButton(page, 'Continuar');
 
             // ── STEP 10: Espera inteligente — análise pós-veículo (~10s) ──
@@ -380,16 +386,40 @@ export class OmniAdapter implements BankAdapter {
 
     /** Clicar no omni-button pelo texto (novo sistema Angular) */
     private async clickOmniButton(page: Page, text: string): Promise<void> {
+        const startTime = Date.now();
+        const timeout = 25000;
+
         try {
             // Tenta encontrar o botão visível com o texto correto
+            // Seletor 1: omni-button que contém um <button> interno
             const btn = page.locator(`omni-button:has-text("${text}") button, button:has(span.text-label:has-text("${text}"))`).first();
-            await btn.waitFor({ state: 'visible', timeout: 8000 });
-            await btn.click();
+            await btn.waitFor({ state: 'visible', timeout: 10000 });
+
+            // Aguardar ficar habilitado (não ter atributo disabled)
+            // Se demorar muito, o click do playwright esperaria 30s, mas vamos monitorar
+            console.log(`[OmniAdapter] Waiting for button "${text}" to be enabled...`);
+            while (Date.now() - startTime < timeout) {
+                const isDisabled = await btn.getAttribute('disabled') !== null;
+                const isClassDisabled = await btn.evaluate(node => node.classList.contains('disabled'));
+                if (!isDisabled && !isClassDisabled) break;
+                await page.waitForTimeout(1000);
+            }
+
+            await btn.click({ timeout: 10000 });
         } catch {
             // Fallback: qualquer botão contendo o texto
             console.warn(`[OmniAdapter] clickOmniButton fallback for "${text}"`);
             const fallback = page.locator(`button:has-text("${text}"):visible`).first();
-            await fallback.click();
+            await fallback.waitFor({ state: 'visible', timeout: 5000 });
+            
+            // Também aguarda habilitar no fallback
+            while (Date.now() - startTime < timeout) {
+                const isDisabled = await fallback.getAttribute('disabled') !== null;
+                if (!isDisabled) break;
+                await page.waitForTimeout(1000);
+            }
+            
+            await fallback.click({ timeout: 10000 });
         }
     }
 
