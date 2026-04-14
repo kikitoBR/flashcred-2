@@ -146,7 +146,7 @@ router.get('/', authMiddleware, requireRole(['admin']), async (req: any, res: an
     try {
         const tenantId = req.tenant.id;
         const invites = await query(
-            'SELECT id, email, role, expires_at, used, created_at FROM invitations WHERE tenant_id = ? AND used = 0 AND expires_at > NOW() ORDER BY created_at DESC',
+            'SELECT id, email, role, expires_at, used, created_at, token FROM invitations WHERE tenant_id = ? AND used = 0 AND expires_at > NOW() ORDER BY created_at DESC',
             [tenantId]
         );
         res.json(invites);
