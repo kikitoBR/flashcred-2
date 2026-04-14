@@ -150,7 +150,34 @@ export class C6Adapter implements BankAdapter {
             await page.locator('input[formcontrolname="celular"]').fill(cleanPhone);
             await page.locator('input[formcontrolname="dataDeNascimento"]').fill(birthDate);
             await page.keyboard.press('Tab');
-            await page.waitForTimeout(1000);
+            await page.waitForTimeout(500);
+
+            // ── CNH Checkbox Handling ──
+            try {
+                const hasCNHInput = (input.client as any).hasCNH !== false; // Default to true if not specified
+                console.log(`[C6Adapter] → Handling CNH checkbox. Client has CNH: ${hasCNHInput}`);
+                
+                const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
+                if (await cnhCheckbox.isVisible({ timeout: 5000 })) {
+                    // Check if it's currently checked by looking for the class 'mat-checkbox-checked'
+                    const isAlreadyChecked = await cnhCheckbox.evaluate(node => node.classList.contains('mat-checkbox-checked'));
+                    console.log(`[C6Adapter] CNH Checkbox current state (checked): ${isAlreadyChecked}`);
+
+                    if (hasCNHInput !== isAlreadyChecked) {
+                        console.log(`[C6Adapter] Toggling CNH checkbox to ${hasCNHInput}...`);
+                        await cnhCheckbox.locator('label.mat-checkbox-layout').click();
+                        await page.waitForTimeout(500);
+                    } else {
+                        console.log(`[C6Adapter] CNH Checkbox already in desired state.`);
+                    }
+                } else {
+                    console.log('[C6Adapter] ⚠️ CNH checkbox (flagPossuiCNH) not found/visible.');
+                }
+            } catch (e: any) {
+                console.warn(`[C6Adapter] ⚠️ Error handling CNH checkbox: ${e.message}`);
+            }
+
+            await page.waitForTimeout(500);
 
             try {
                 const ageError = page.locator('mat-error:has-text("Ops, cliente precisa ter no máximo 75 anos.")').first();

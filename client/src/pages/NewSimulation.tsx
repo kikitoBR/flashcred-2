@@ -43,6 +43,9 @@ export const NewSimulation = () => {
     const [vehicleSearchTerm, setVehicleSearchTerm] = useGlobalState('vehicleSearchTerm', '', simulationState, setSimulationState);
     const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
 
+    // CNH State
+    const [hasCNH, setHasCNH] = useGlobalState<boolean>('hasCNH', true, simulationState, setSimulationState);
+
     // Financials
     const [customVehiclePrice, setCustomVehiclePrice] = useGlobalState<number>('customVehiclePrice', 0, simulationState, setSimulationState);
     const [downPayment, setDownPayment] = useGlobalState<number>('downPayment', 0, simulationState, setSimulationState);
@@ -87,6 +90,16 @@ export const NewSimulation = () => {
             }
         }
     }, [selectedVehicle, vehicles]);
+
+    // Update hasCNH when client changes
+    useEffect(() => {
+        if (selectedClient) {
+            const c = clients.find(cl => cl.id === selectedClient);
+            if (c) {
+                setHasCNH(c.cnh?.hasCnh ?? true);
+            }
+        }
+    }, [selectedClient, clients]);
 
     // Handle Pre-selection from Retry/Remarketing
     useEffect(() => {
@@ -174,7 +187,7 @@ export const NewSimulation = () => {
             try {
                 console.log("Calling RPA Service for:", selectedRpaBanks);
                 const rpaResults = await rpaService.simulate({
-                    client,
+                    client: { ...client, hasCNH },
                     vehicle: { ...vehicle, downPayment, price: customVehiclePrice },
                     banks: selectedRpaBanks,
                     options: {
@@ -616,6 +629,23 @@ export const NewSimulation = () => {
                             </div>
                         </div>
                     )}
+
+                    <div className="mt-6 flex items-center justify-between p-4 bg-slate-50 border border-t-0 border-slate-200 rounded-b-lg">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-700">O cliente possui CNH?</span>
+                                <button
+                                    onClick={() => setHasCNH(!hasCNH)}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${hasCNH ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${hasCNH ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+                        </div>
+                        <span className="text-xs text-slate-400 italic">
+                            {hasCNH ? 'Sim, o cliente possui habilitação.' : 'Não, o cliente não possui habilitação.'}
+                        </span>
+                    </div>
 
                     <div className="mt-8 flex justify-end">
                         <Button

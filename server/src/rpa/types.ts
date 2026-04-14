@@ -16,6 +16,7 @@ export interface SimulationInput {
         phone?: string;
         email?: string;
         zipCode?: string; // NOVO CAMPO
+        hasCNH?: boolean; // NOVO: Campo para checkbox CNH em bancos como C6
     };
     vehicle: {
         plate: string;
