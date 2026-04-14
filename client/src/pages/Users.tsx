@@ -71,7 +71,8 @@ export const Users = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setGeneratedLink(data.link);
+        const generated = `${window.location.origin}/#/register?token=${data.token}`;
+        setGeneratedLink(generated);
         setEmail('');
         setRole('vendedor');
         fetchInvites();
