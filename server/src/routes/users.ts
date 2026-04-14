@@ -16,7 +16,7 @@ router.use(requireRole(['admin']));
 router.get('/', async (req: any, res: any) => {
     try {
         const tenantId = req.tenant.id;
-        const users = await query('SELECT id, email, role, created_at FROM users WHERE tenant_id = ? ORDER BY created_at DESC', [tenantId]);
+        const users = await query('SELECT id, email, role, created_at FROM users WHERE tenant_id = ? AND COALESCE(is_hidden, 0) = 0 ORDER BY created_at DESC', [tenantId]);
         res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
