@@ -97,7 +97,7 @@ export class OmniAdapter implements BankAdapter {
                     await page.waitForTimeout(1500);
 
                     // Selecionar a primeira opção do overlay
-                    const firstOption = page.locator('.cdk-overlay-container omni-select-option, .cdk-overlay-container .omni-select_option, .cdk-overlay-container [role="option"]').first();
+                    const firstOption = page.locator('.cdk-overlay-container .select_dropdown_item, .cdk-overlay-container omni-select-option, .cdk-overlay-container [role="option"]').first();
                     if (await firstOption.isVisible({ timeout: 5000 })) {
                         await firstOption.click({ force: true });
                         console.log('[OmniAdapter] ✅ Vendedor selecionado com sucesso.');
