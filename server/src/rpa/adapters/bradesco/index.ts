@@ -172,61 +172,7 @@ export class BradescoAdapter implements BankAdapter {
             await novaPropostaBtn.waitFor({ state: 'visible', timeout: 15000 });
             await novaPropostaBtn.click({ force: true });
 
-            // Handle CNH Checkbox (EARLY - before CPF/Phone entry as recommended by user)
-            try {
-                console.log('[BradescoAdapter] Step 1.5: Handling CNH Checkbox pre-emptively...');
-                const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
-                await cnhCheckbox.waitFor({ state: 'visible', timeout: 15000 });
-                await page.waitForTimeout(1000);
-
-                if (await cnhCheckbox.isVisible()) {
-                    const cnhInput = cnhCheckbox.locator('input[type="checkbox"]').first();
-                    
-                    const checkState = async () => {
-                        const ariaChecked = await cnhInput.getAttribute('aria-checked');
-                        const hasCheckedClass = await cnhCheckbox.evaluate(node => node.classList.contains('mat-checkbox-checked')).catch(() => false);
-                        return ariaChecked === 'true' || hasCheckedClass;
-                    };
-
-                    const isCurrentlyChecked = await checkState();
-                    const shouldBeChecked = input.client.hasCNH !== false;
-                    
-                    console.log(`[BradescoAdapter] Early CNH Check - Page: ${isCurrentlyChecked}, Wanted: ${shouldBeChecked}`);
-
-                    if (isCurrentlyChecked !== shouldBeChecked) {
-                        console.log(`[BradescoAdapter] 🔄 Early CNH Toggle required...`);
-                        
-                        const cnhLabel = cnhCheckbox.locator('label.mat-checkbox-layout').first();
-                        await cnhLabel.click({ force: true });
-                        await page.waitForTimeout(1000);
-                        
-                        if (await checkState() !== shouldBeChecked) {
-                            await cnhInput.click({ force: true });
-                            await page.waitForTimeout(1000);
-                        }
-
-                        if (await checkState() !== shouldBeChecked) {
-                            await cnhCheckbox.evaluate((node) => {
-                                const label = node.querySelector('label') as HTMLElement;
-                                if (label) label.click();
-                                const input = node.querySelector('input') as HTMLInputElement;
-                                if (input) {
-                                    input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-                            });
-                            await page.waitForTimeout(1000);
-                        }
-
-                        const finalState = await checkState();
-                        console.log(`[BradescoAdapter] Early CNH Toggle Result: ${finalState === shouldBeChecked ? 'SUCCESS' : 'FAILED'}`);
-                    } else {
-                        console.log(`[BradescoAdapter] ✅ Early CNH is already correct.`);
-                    }
-                }
-            } catch (e: any) {
-                console.warn('[BradescoAdapter] ⚠️ Early CNH toggle failed or element not found:', e.message);
-            }
+            // ── Step 1.5: Handle CNH Checkbox (REMOVED EARLY TOGGLE — handled after phone below) ──
 
             // ── Step 2: Fill Client CPF & Celular ──
             console.log('[BradescoAdapter] Step 2: Filling Client CPF and Celular...');
@@ -243,41 +189,70 @@ export class BradescoAdapter implements BankAdapter {
             await phoneField.fill('');
             const phoneClean = (input.client.phone || '11999999999').replace(/\D/g, '');
             await page.keyboard.type(phoneClean, { delay: 50 });
-            await page.waitForTimeout(1000);
+            // Click elsewhere to trigger phone validation and settle reactive form state
+            await page.keyboard.press('Tab');
+            await page.waitForTimeout(1500);
 
-            // ── Step 3: Avançar (With strict CNH verification) ──
+            // ── Step 2.5: Set CNH Checkbox (after form is fully populated) ──
             try {
-                const checkStateFinal = async () => {
-                    const cnhBox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
-                    const cnhInput = cnhBox.locator('input[type="checkbox"]').first();
-                    const ariaChecked = await cnhInput.getAttribute('aria-checked');
-                    const hasCheckedClass = await cnhBox.evaluate(node => node.classList.contains('mat-checkbox-checked')).catch(() => false);
-                    return ariaChecked === 'true' || hasCheckedClass;
+                const shouldHaveCNH = input.client.hasCNH !== false;
+                console.log(`[BradescoAdapter] CNH Target: ${shouldHaveCNH} (hasCNH=${input.client.hasCNH})`);
+
+                const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
+                await cnhCheckbox.waitFor({ state: 'visible', timeout: 10000 });
+
+                const cnhInput = cnhCheckbox.locator('input[type="checkbox"]').first();
+
+                const getChecked = async () =>
+                    (await cnhInput.getAttribute('aria-checked')) === 'true';
+
+                const toggleOnce = async (method: string) => {
+                    console.log(`[BradescoAdapter] 🔄 CNH toggle — method: ${method}`);
+                    if (method === 'keyboard') {
+                        await cnhInput.focus();
+                        await page.waitForTimeout(200);
+                        await page.keyboard.press('Space');
+                    } else if (method === 'inner-container') {
+                        const innerSpan = cnhCheckbox.locator('span.mat-checkbox-inner-container').first();
+                        await innerSpan.click({ force: true });
+                    } else if (method === 'label') {
+                        const label = cnhCheckbox.locator('label.mat-checkbox-layout').first();
+                        await label.click({ force: true });
+                    } else if (method === 'js') {
+                        await cnhCheckbox.evaluate((el) => {
+                            const lbl = el.querySelector('label') as HTMLElement;
+                            if (lbl) lbl.click();
+                        });
+                    }
+                    await page.waitForTimeout(600);
                 };
 
-                const finalVerification = await checkStateFinal();
-                const targetState = input.client.hasCNH !== false;
+                const currentState = await getChecked();
+                console.log(`[BradescoAdapter] CNH current state: ${currentState}, target: ${shouldHaveCNH}`);
 
-                if (finalVerification !== targetState) {
-                    console.warn(`[BradescoAdapter] ⚠️ CRITICAL: CNH state mismatch before advance! Current: ${finalVerification}, Expected: ${targetState}. Attempting emergency JS toggle...`);
-                    await page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first().evaluate((node, target) => {
-                        const input = node.querySelector('input') as HTMLInputElement;
-                        const isChecked = node.classList.contains('mat-checkbox-checked') || (input && input.getAttribute('aria-checked') === 'true');
-                        if (isChecked !== target) {
-                            const label = node.querySelector('label') as HTMLElement;
-                            if (label) label.click();
-                            if (input) {
-                                input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                                input.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
+                if (currentState !== shouldHaveCNH) {
+                    const methods = ['keyboard', 'inner-container', 'label', 'js'];
+                    let resolved = false;
+
+                    for (const method of methods) {
+                        await toggleOnce(method);
+                        const after = await getChecked();
+                        console.log(`[BradescoAdapter] CNH after ${method}: ${after}`);
+                        if (after === shouldHaveCNH) {
+                            console.log(`[BradescoAdapter] ✅ CNH set correctly via [${method}].`);
+                            resolved = true;
+                            break;
                         }
-                    }, targetState);
-                    await page.waitForTimeout(1000);
+                    }
+
+                    if (!resolved) {
+                        console.error(`[BradescoAdapter] ❌ CNH could NOT be set to ${shouldHaveCNH} after all methods.`);
+                    }
                 } else {
-                    console.log(`[BradescoAdapter] ✅ Pre-advance verification OK: CNH is ${finalVerification}`);
+                    console.log(`[BradescoAdapter] ✅ CNH already at target state (${shouldHaveCNH}). No toggle needed.`);
                 }
-            } catch (e) {
-                console.warn('[BradescoAdapter] ⚠️ Error during pre-advance CNH verification:', e);
+            } catch (e: any) {
+                console.warn('[BradescoAdapter] ⚠️ CNH handling error:', e.message);
             }
 
             console.log('[BradescoAdapter] Step 3: Clicking "Avançar"...');
