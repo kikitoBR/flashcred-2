@@ -186,27 +186,53 @@ export class BradescoAdapter implements BankAdapter {
             // Handle CNH Checkbox
             try {
                 const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
-                await cnhCheckbox.waitFor({ state: 'visible', timeout: 7000 });
-                await page.waitForTimeout(1500); // Give it extra time for potential async reactions to phone field
+                await cnhCheckbox.waitFor({ state: 'visible', timeout: 10000 });
+                await page.waitForTimeout(2000); // Wait for phone field async side-effects
 
                 if (await cnhCheckbox.isVisible()) {
-                    // Find the underlying input which holds the source of truth for accessibility and form state
                     const cnhInput = cnhCheckbox.locator('input[type="checkbox"]').first();
-                    const isCurrentlyChecked = await cnhInput.getAttribute('aria-checked') === 'true';
-                    const shouldBeChecked = input.client.hasCNH !== false; // Default to true unless explicitly false
                     
-                    console.log(`[BradescoAdapter] CNH Status - Page (aria-checked): ${isCurrentlyChecked}, Client Data: ${shouldBeChecked}`);
+                    const checkState = async () => {
+                        const ariaChecked = await cnhInput.getAttribute('aria-checked');
+                        const hasCheckedClass = await cnhCheckbox.evaluate(node => node.classList.contains('mat-checkbox-checked'));
+                        return ariaChecked === 'true' || hasCheckedClass;
+                    };
+
+                    const isCurrentlyChecked = await checkState();
+                    const shouldBeChecked = input.client.hasCNH !== false;
+                    
+                    console.log(`[BradescoAdapter] CNH - Page: ${isCurrentlyChecked}, Wanted: ${shouldBeChecked}, Client.hasCNH: ${input.client.hasCNH}`);
 
                     if (isCurrentlyChecked !== shouldBeChecked) {
-                        console.log(`[BradescoAdapter] 🔄 Toggling CNH checkbox to: ${shouldBeChecked}`);
-                        // Trigger click directly on the label container to ensure Angular Material catches it
+                        console.log(`[BradescoAdapter] 🔄 CNH Toggle required. Starting multi-method attempt...`);
+                        
+                        // Attempt 1: Label Click (Standard Angular Material)
                         const cnhLabel = cnhCheckbox.locator('label.mat-checkbox-layout').first();
                         await cnhLabel.click({ force: true });
-                        await page.waitForTimeout(800); // Wait for toggle animation
+                        await page.waitForTimeout(1000);
                         
-                        // Verify if it actually toggled
-                        const verifiedChecked = await cnhInput.getAttribute('aria-checked') === 'true';
-                        console.log(`[BradescoAdapter] CNH Status after toggle: ${verifiedChecked}`);
+                        if (await checkState() !== shouldBeChecked) {
+                            console.log(`[BradescoAdapter] 🔄 Attempt 2: Direct Input Click...`);
+                            await cnhInput.click({ force: true });
+                            await page.waitForTimeout(1000);
+                        }
+
+                        if (await checkState() !== shouldBeChecked) {
+                            console.log(`[BradescoAdapter] 🔄 Attempt 3: JS Evaluation Click...`);
+                            await cnhCheckbox.evaluate((node) => {
+                                const label = node.querySelector('label') as HTMLElement;
+                                if (label) label.click();
+                                const input = node.querySelector('input') as HTMLInputElement;
+                                if (input) {
+                                    input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+                            });
+                            await page.waitForTimeout(1000);
+                        }
+
+                        const finalState = await checkState();
+                        console.log(`[BradescoAdapter] CNH Toggle Finished. Result: ${finalState === shouldBeChecked ? 'SUCCESS' : 'FAILED'} (Final: ${finalState})`);
                     } else {
                         console.log(`[BradescoAdapter] ✅ CNH is already correctly set to: ${shouldBeChecked}`);
                     }
