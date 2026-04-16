@@ -57,28 +57,33 @@ export class BradescoAdapter implements BankAdapter {
                 loginAttempts++;
                 console.log(`[BradescoAdapter] Login attempt ${loginAttempts}/${maxAttempts}...`);
 
-                // Fill username (CPF)
+                // Fill username (CPF) - with human-like delay before starting
+                await page.waitForTimeout(1500);
                 const usernameField = page.locator('input[formcontrolname="username"], input[mask="000.000.000-00"]').first();
                 await usernameField.waitFor({ state: 'visible', timeout: 15000 });
                 await usernameField.click();
+                await page.waitForTimeout(500);
                 await usernameField.fill('');
-                await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 150 });
+                await page.keyboard.type(credentials.login.replace(/\D/g, ''), { delay: 180 });
+                await page.waitForTimeout(1200); // Pause between fields
 
                 // Fill password
                 const passwordField = page.locator('input[formcontrolname="password"], input[type="password"]').first();
                 await passwordField.waitFor({ state: 'visible', timeout: 5000 });
                 await passwordField.click();
+                await page.waitForTimeout(500);
                 await passwordField.fill('');
-                await page.keyboard.type(credentials.password || '', { delay: 180 });
-                await page.waitForTimeout(1000);
+                await page.keyboard.type(credentials.password || '', { delay: 200 });
+                await page.waitForTimeout(1500); // Pause before clicking submit
 
-                // Click Entrar
+                // Click Entrar (with natural delay before submit)
                 const loginBtn = page.locator('button[type="submit"]:has-text("Entrar")').first();
                 await loginBtn.waitFor({ state: 'visible', timeout: 5000 });
+                await page.waitForTimeout(800); // Natural pause before clicking
 
                 // Try standard click, fallback to JS event evaluation if intercepted
                 try {
-                    await loginBtn.click({ delay: 100 });
+                    await loginBtn.click({ delay: 150 });
                 } catch (e) {
                     await loginBtn.evaluate((node) => {
                         const btn = node as HTMLButtonElement;
