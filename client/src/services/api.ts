@@ -134,6 +134,17 @@ export const vehicleService = {
         });
         if (!response.ok) throw new Error('Failed to update vehicle');
         return response.json();
+    },
+    remove: async (id: string) => {
+        const response = await fetch(`${API_URL}/vehicles/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to delete vehicle');
+        }
+        return response.json();
     }
 };
 

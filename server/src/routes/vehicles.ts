@@ -81,4 +81,35 @@ router.put('/:id', async (req, res: any) => {
     }
 });
 
+// DELETE /api/vehicles/:id
+router.delete('/:id', async (req: any, res: any) => {
+    try {
+        const tenantId = req.tenant.id;
+        const { id } = req.params;
+
+        // 1. Verificar se o veículo existe e pertence ao tenant
+        const vehicle = await query('SELECT * FROM vehicles WHERE id = ? AND tenant_id = ?', [id, tenantId]) as any[];
+        if (vehicle.length === 0) {
+            return res.status(404).json({ error: 'Vehicle not found' });
+        }
+
+        // 2. Verificar se existem vendas finalizadas vinculadas a este veículo
+        const sales = await query('SELECT id FROM sales WHERE vehicle_id = ? AND tenant_id = ? AND status = "FINALIZED"', [id, tenantId]) as any[];
+        if (sales.length > 0) {
+            return res.status(400).json({ 
+                error: 'Não é possível excluir um veículo que já possui uma venda finalizada vinculada.' 
+            });
+        }
+
+        // 3. (Opcional) Desvincular simulações ou apenas deixar o ID órfão. 
+        // Aqui optamos por deletar, o banco deve estar configurado para lidar com isso ou as simulações apenas perderão o link.
+        await query('DELETE FROM vehicles WHERE id = ? AND tenant_id = ?', [id, tenantId]);
+
+        res.json({ message: 'Vehicle deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting vehicle:', error);
+        res.status(500).json({ error: 'Failed to delete vehicle' });
+    }
+});
+
 export default router;

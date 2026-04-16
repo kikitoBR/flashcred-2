@@ -183,6 +183,38 @@ export class BradescoAdapter implements BankAdapter {
             const phoneClean = (input.client.phone || '11999999999').replace(/\D/g, '');
             await page.keyboard.type(phoneClean, { delay: 50 });
 
+            // Handle CNH Checkbox
+            try {
+                const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
+                await cnhCheckbox.waitFor({ state: 'visible', timeout: 7000 });
+                await page.waitForTimeout(1500); // Give it extra time for potential async reactions to phone field
+
+                if (await cnhCheckbox.isVisible()) {
+                    // Find the underlying input which holds the source of truth for accessibility and form state
+                    const cnhInput = cnhCheckbox.locator('input[type="checkbox"]').first();
+                    const isCurrentlyChecked = await cnhInput.getAttribute('aria-checked') === 'true';
+                    const shouldBeChecked = input.client.hasCNH !== false; // Default to true unless explicitly false
+                    
+                    console.log(`[BradescoAdapter] CNH Status - Page (aria-checked): ${isCurrentlyChecked}, Client Data: ${shouldBeChecked}`);
+
+                    if (isCurrentlyChecked !== shouldBeChecked) {
+                        console.log(`[BradescoAdapter] 🔄 Toggling CNH checkbox to: ${shouldBeChecked}`);
+                        // Trigger click directly on the label container to ensure Angular Material catches it
+                        const cnhLabel = cnhCheckbox.locator('label.mat-checkbox-layout').first();
+                        await cnhLabel.click({ force: true });
+                        await page.waitForTimeout(800); // Wait for toggle animation
+                        
+                        // Verify if it actually toggled
+                        const verifiedChecked = await cnhInput.getAttribute('aria-checked') === 'true';
+                        console.log(`[BradescoAdapter] CNH Status after toggle: ${verifiedChecked}`);
+                    } else {
+                        console.log(`[BradescoAdapter] ✅ CNH is already correctly set to: ${shouldBeChecked}`);
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[BradescoAdapter] ⚠️ Could not interact with CNH checkbox:', e.message);
+            }
+
             // ── Step 3: Avançar ──
             const avancarBtn1 = page.locator('button:has-text("Avançar")').first();
             await avancarBtn1.click();

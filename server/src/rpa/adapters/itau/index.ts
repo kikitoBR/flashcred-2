@@ -121,6 +121,45 @@ export class ItauAdapter implements BankAdapter {
             await page.locator('button:has-text("Continuar")').first().click({ force: true });
             await page.waitForTimeout(4000);
 
+            // ── HANDLE CNH TOGGLE (Sem CNH) ──
+            try {
+                // Check if the "Sem CNH indisponível" warning is present
+                const cnhWarningBtn = page.locator('.btn-dismissal-cnh-tooltip, button[content*="sem CNH indisponível"]').first();
+                if (await cnhWarningBtn.isVisible({ timeout: 2000 })) {
+                    const warningText = await cnhWarningBtn.getAttribute('content') || "Financiamento sem CNH indisponível para este cliente.";
+                    console.warn(`[ItauAdapter] ⚠️ CNH Warning: ${warningText}`);
+                    result.warning = warningText;
+                }
+
+                const cnhToggleInput = page.locator('#without-cnh-switch, [formcontrolname="isDismissalCnh"]').first();
+                if (await cnhToggleInput.isVisible({ timeout: 2000 })) {
+                    const hasCNH = input.client.hasCNH !== false; // Default to true if not specified
+                    const isCurrentlySetToNoCNH = await cnhToggleInput.evaluate((node) => (node as HTMLInputElement).checked);
+                    
+                    console.log(`[ItauAdapter] CNH Status - Page (isDismissal): ${isCurrentlySetToNoCNH}, Client has CNH: ${hasCNH}`);
+
+                    // If client has NO CNH (hasCNH === false), the switch "Sem CNH" should be TRUE (checked)
+                    const shouldDismissCNH = !hasCNH;
+
+                    if (isCurrentlySetToNoCNH !== shouldDismissCNH) {
+                        // Check if it's disabled before clicking
+                        const isDisabled = await cnhToggleInput.evaluate((node) => (node as HTMLInputElement).disabled);
+                        if (isDisabled) {
+                            console.warn('[ItauAdapter] ⚠️ Cannot toggle CNH: Switch is disabled by the bank.');
+                            if (!result.warning) result.warning = "A opção 'Sem CNH' foi desabilitada pelo banco para este CPF.";
+                        } else {
+                            console.log(`[ItauAdapter] 🔄 Toggling 'Sem CNH' switch to: ${shouldDismissCNH}`);
+                            await page.locator('label[for="without-cnh-switch"], .ids-switch').first().click({ force: true });
+                            await page.waitForTimeout(1000);
+                        }
+                    } else {
+                        console.log(`[ItauAdapter] ✅ 'Sem CNH' switch is already correctly set to: ${shouldDismissCNH}`);
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[ItauAdapter] ⚠️ Could not handle CNH toggle:', e.message);
+            }
+
             // ── VALIDAR SE O CPF FOI REJEITADO (SEM CONDIÇÕES APROVÁVEIS) ──
             try {
                 console.log('[ItauAdapter] Checking if client CPF has approved conditions...');

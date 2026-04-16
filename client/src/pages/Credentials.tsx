@@ -4,7 +4,7 @@ import { Card, Button } from '../../components/ui';
 import { useAppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { BANKS } from '../../constants';
-import { Bank, BankCredential } from '../../types';
+import { Bank, BankCredential } from '../types';
 import { credentialsService } from '../services/api';
 
 interface CredentialCardProps {

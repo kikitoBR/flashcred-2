@@ -154,21 +154,23 @@ export class C6Adapter implements BankAdapter {
 
             // ── CNH Checkbox Handling ──
             try {
-                const hasCNHInput = (input.client as any).hasCNH !== false; // Default to true if not specified
-                console.log(`[C6Adapter] → Handling CNH checkbox. Client has CNH: ${hasCNHInput}`);
-                
                 const cnhCheckbox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
-                if (await cnhCheckbox.isVisible({ timeout: 5000 })) {
+                await cnhCheckbox.waitFor({ state: 'attached', timeout: 5000 });
+                await page.waitForTimeout(1000); // Give time for Angular to set default state
+
+                if (await cnhCheckbox.isVisible()) {
                     // Check if it's currently checked by looking for the class 'mat-checkbox-checked'
                     const isAlreadyChecked = await cnhCheckbox.evaluate(node => node.classList.contains('mat-checkbox-checked'));
-                    console.log(`[C6Adapter] CNH Checkbox current state (checked): ${isAlreadyChecked}`);
+                    const hasCNHInput = input.client.hasCNH !== false; // Default to true if not specified
+                    
+                    console.log(`[C6Adapter] CNH Status - Page: ${isAlreadyChecked}, Client Data: ${hasCNHInput}`);
 
                     if (hasCNHInput !== isAlreadyChecked) {
-                        console.log(`[C6Adapter] Toggling CNH checkbox to ${hasCNHInput}...`);
-                        await cnhCheckbox.locator('label.mat-checkbox-layout').click();
-                        await page.waitForTimeout(500);
+                        console.log(`[C6Adapter] 🔄 Toggling CNH checkbox to: ${hasCNHInput}`);
+                        await cnhCheckbox.locator('label.mat-checkbox-layout').click({ force: true });
+                        await page.waitForTimeout(500); 
                     } else {
-                        console.log(`[C6Adapter] CNH Checkbox already in desired state.`);
+                        console.log(`[C6Adapter] ✅ CNH checkbox is already in correct state: ${hasCNHInput}`);
                     }
                 } else {
                     console.log('[C6Adapter] ⚠️ CNH checkbox (flagPossuiCNH) not found/visible.');

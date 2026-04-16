@@ -298,7 +298,11 @@ export class SafraAdapter implements BankAdapter {
             console.log(`[SafraAdapter] Step 9: Filling vehicle value: ${input.vehicle.price}...`);
             const valueField = page.locator('input#valorVeiculo');
             await valueField.waitFor({ state: 'visible', timeout: 10000 });
-            await valueField.click({ clickCount: 3 }); // Select all
+            
+            // Clean any blocking modals before clicking
+            await this.dismissSweetAlert(page);
+            
+            await valueField.click({ clickCount: 3, force: true }); // Select all + force click
             await page.waitForTimeout(200);
             const formattedPrice = this.formatCurrency(input.vehicle.price);
             await page.keyboard.type(formattedPrice, { delay: 30 });
@@ -310,7 +314,11 @@ export class SafraAdapter implements BankAdapter {
             console.log(`[SafraAdapter] Step 10: Filling down payment: ${downPayment}...`);
             const entryField = page.locator('input#valorEntrada');
             await entryField.waitFor({ state: 'visible', timeout: 10000 });
-            await entryField.click({ clickCount: 3 });
+            
+            // Clean any blocking modals before clicking
+            await this.dismissSweetAlert(page);
+
+            await entryField.click({ clickCount: 3, force: true });
             await page.waitForTimeout(200);
             const formattedEntry = this.formatCurrency(downPayment);
             await page.keyboard.type(formattedEntry, { delay: 30 });
@@ -659,5 +667,38 @@ export class SafraAdapter implements BankAdapter {
     private formatCurrency(value: number | string): string {
         // Format as "50000,00" (no thousands separator, comma as decimal)
         return Number(value).toFixed(2).replace('.', ',');
+    }
+
+    // =============================
+    // HELPER: Dismiss SweetAlert2
+    // =============================
+    private async dismissSweetAlert(page: Page): Promise<void> {
+        try {
+            // Check if swal2 is present
+            const swalContainer = page.locator('.swal2-container').first();
+            if (await swalContainer.isVisible({ timeout: 2000 })) {
+                console.log('[SafraAdapter] 🧹 SweetAlert2 detected, attempting to dismiss...');
+                
+                // Try to click the confirm button first
+                const confirmBtn = page.locator('.swal2-confirm').first();
+                if (await confirmBtn.count() > 0 && await confirmBtn.isVisible({ timeout: 500 })) {
+                    await confirmBtn.click({ force: true });
+                } else {
+                    // Forcefully remove it from DOM if it blocks/is just a backdrop
+                    await page.evaluate(() => {
+                        const swal = document.querySelector('.swal2-container');
+                        if (swal) swal.remove();
+                        const body = document.querySelector('body');
+                        if (body) {
+                            body.classList.remove('swal2-shown', 'swal2-height-auto');
+                            body.style.overflow = '';
+                        }
+                    });
+                }
+                await page.waitForTimeout(800);
+            }
+        } catch (e) {
+            // Ignore errors during dismissal
+        }
     }
 }

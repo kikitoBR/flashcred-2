@@ -154,9 +154,17 @@ export const Vehicles = () => {
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         if (confirm('Tem certeza que deseja remover este veículo?')) {
-            setVehicles(prev => prev.filter(v => v.id !== id));
+            try {
+                await vehicleService.remove(id);
+                // Refresh vehicles list from database to ensure accuracy
+                const updatedVehicles = await vehicleService.getAll();
+                setVehicles(updatedVehicles);
+            } catch (error: any) {
+                console.error('Error deleting vehicle:', error);
+                alert(error.message || 'Erro ao remover veículo.');
+            }
         }
     };
 
