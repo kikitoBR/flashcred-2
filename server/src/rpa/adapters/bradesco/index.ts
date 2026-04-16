@@ -241,9 +241,45 @@ export class BradescoAdapter implements BankAdapter {
                 console.warn('[BradescoAdapter] ⚠️ Could not interact with CNH checkbox:', e.message);
             }
 
-            // ── Step 3: Avançar ──
-            const avancarBtn1 = page.locator('button:has-text("Avançar")').first();
-            await avancarBtn1.click();
+            // ── Step 3: Avançar (With strict CNH verification) ──
+            try {
+                const checkStateFinal = async () => {
+                    const cnhBox = page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first();
+                    const cnhInput = cnhBox.locator('input[type="checkbox"]').first();
+                    const ariaChecked = await cnhInput.getAttribute('aria-checked');
+                    const hasCheckedClass = await cnhBox.evaluate(node => node.classList.contains('mat-checkbox-checked')).catch(() => false);
+                    return ariaChecked === 'true' || hasCheckedClass;
+                };
+
+                const finalVerification = await checkStateFinal();
+                const targetState = input.client.hasCNH !== false;
+
+                if (finalVerification !== targetState) {
+                    console.warn(`[BradescoAdapter] ⚠️ CRITICAL: CNH state mismatch before advance! Current: ${finalVerification}, Expected: ${targetState}. Attempting emergency JS toggle...`);
+                    await page.locator('mat-checkbox[formcontrolname="flagPossuiCNH"]').first().evaluate((node, target) => {
+                        const input = node.querySelector('input') as HTMLInputElement;
+                        const isChecked = node.classList.contains('mat-checkbox-checked') || (input && input.getAttribute('aria-checked') === 'true');
+                        if (isChecked !== target) {
+                            const label = node.querySelector('label') as HTMLElement;
+                            if (label) label.click();
+                            if (input) {
+                                input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    }, targetState);
+                    await page.waitForTimeout(1000);
+                } else {
+                    console.log(`[BradescoAdapter] ✅ Pre-advance verification OK: CNH is ${finalVerification}`);
+                }
+            } catch (e) {
+                console.warn('[BradescoAdapter] ⚠️ Error during pre-advance CNH verification:', e);
+            }
+
+            console.log('[BradescoAdapter] Step 3: Clicking "Avançar"...');
+            // Using more specific selector based on user HTML snippet
+            const avancarBtn1 = page.locator('button.mat-flat-button.mat-primary:has-text("Avançar"), button[type="submit"]:has-text("Avançar"), button:has-text("Avançar")').first();
+            await avancarBtn1.click({ force: true });
 
             console.log('[BradescoAdapter] Waiting to see next step (Birthdate modal, Error modal, or UF Selection)...');
             try {
